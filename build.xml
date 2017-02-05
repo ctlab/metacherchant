@@ -1,0 +1,81 @@
+<project name="jarsBuilder" default="metafast">
+    <property name="VERSION" value="0.1.0"/>
+    <exec executable="git" outputproperty="revision">
+        <arg value="rev-parse"/>
+        <arg value="--short"/>
+        <arg value="HEAD"/>
+    </exec>
+    <property name="version" value="${VERSION} (revision ${revision})"/>
+    <echo message="${version}" file="VERSION"/>
+    <echo message="Version: ${version}"/>
+    
+    <property name="src.dir" value="src"/>
+    <property name="bin.dir" value="out/bin"/>
+    <property name="jars.dir" value="out"/>
+
+    <property name="itmo-assembler.path" value="lib/itmo-assembler.jar"/>
+    <property name="args4j.path" value="lib/args4j-2.0.21.jar"/>
+
+    <property name="project.main" value="Runner"/>
+    <property name="project.name" value="metafast"/>
+    <property name="project.jar" value="${jars.dir}/${project.name}.jar"/>
+    <property name="project.sh" value="${jars.dir}/${project.name}.sh"/>
+    <property name="project.bat" value="${jars.dir}/${project.name}.bat"/>
+
+    
+
+    <target name="metafast">
+        <mkdir dir="${bin.dir}"/>
+        
+        <javac srcdir="${src.dir}"
+               destdir="${bin.dir}"
+               classpath="${itmo-assembler.path}:${args4j.path}"
+               includeantruntime="false"
+               debug="true"
+               debuglevel="lines,vars,source"
+               target="1.7"
+               source="1.7">
+        </javac>
+
+        <exec executable="java" failonerror="true">
+            <arg value="-ea"/>
+            <arg value="-cp"/>
+            <arg value="${bin.dir}:${itmo-assembler.path}:${args4j.path}"/>
+            <arg value="ToolsScanner"/>
+        </exec>
+
+        <jar destfile="${project.jar}"
+             basedir="${bin.dir}" duplicate="preserve">
+            <manifest>
+                <attribute name="Main-Class" value="${project.main}"/>
+            </manifest>
+
+            <zipfileset src="${args4j.path}" excludes="META-INF/*.SF"/>
+            <fileset file="VERSION"/>
+            <fileset file="TOOLS"/>
+            <zipfileset src="${itmo-assembler.path}" excludes="META-INF/*.SF"/>
+        </jar>
+
+        <concat destfile="${project.sh}" binary="true">
+            <filelist files="src/stub.sh,${project.jar}"/>
+        </concat>
+        <chmod file="${project.sh}" perm="a+x"/>
+
+        <concat destfile="${project.bat}" binary="true">
+            <filelist files="src/stub.bat,${project.jar}"/>
+        </concat>
+
+        <delete dir="${bin.dir}"/>
+    </target>
+
+    
+    <target name="clean">
+        <delete failonerror="false" includeemptydirs="true">
+            <fileset dir="${bin.dir}"/>
+            <fileset dir="${jars.dir}"/>
+        </delete>
+    </target>
+    
+
+
+</project>
