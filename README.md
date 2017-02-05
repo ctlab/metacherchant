@@ -1,23 +1,23 @@
-**MetaFast-Env** is a tool for analysing a genomic environment of a nucleotide sequence
+**MetaCherchant** is a tool for analysing a genomic environment of a nucleotide sequence
 within a metagenome, which is based on [MetaFast](https://github.com/ctlab/metafast/wiki) source code.
 
 ========
 
 ### Installation
 
-To run MetaFast-Env you need to have JRE 1.6 or higher installed and have either of
+To run MetaCherchant you need to have JRE 1.6 or higher installed and have either of
 these three files: `metafast.sh` for Linux/MacOS, `metafast.bat` for Windows or `metafast.jar` for any OS.
 
-### Running ***metafast-env***
+### Running ***MetaCherchant***
 
-To run MetaFast-Env use the following syntax:
+To run MetaCherchant use the following syntax:
 * `metafast.sh [<Launch options>]`
 * `metafast.bat [<Launch options>]`
 * `java -jar metafast.jar [<Launch options>]`
 
 ### Usage example
 
-Here's the bash script showing the typical usage of MetaFast-Env:
+Here's the bash script showing the typical usage of MetaCherchant:
 
 ~~~
 ./metafast.sh --tool environment-finder \
