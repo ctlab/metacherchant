@@ -25,14 +25,13 @@ public class Runner extends ru.ifmo.genetics.Runner {
 
     @Override
     protected void printHeader() {
-//        out.println("Fast metagenome analysis toolkit, version " + getVersion());
-        out.println("Genomic environment analysis tool, version " + getVersion());
+        out.println("MetaCherchant: genomic environment analysis tool, version " + getVersion());
         out.println();
     }
 
     @Override
     protected void printFirstHelp() {
-        out.println("Usage:     metafast [<Launch options>] [<Input parameters>]");
+        out.println("Usage:     metacherchant [<Launch options>] [<Input parameters>]");
 //        printLater.add("To see full documentation visit https://github.com/ctlab/metafast/wiki");
     }
 

@@ -1,4 +1,4 @@
-<project name="jarsBuilder" default="metafast">
+<project name="jarsBuilder" default="metacherchant">
     <property name="VERSION" value="0.1.0"/>
     <exec executable="git" outputproperty="revision">
         <arg value="rev-parse"/>
@@ -17,14 +17,14 @@
     <property name="args4j.path" value="lib/args4j-2.0.21.jar"/>
 
     <property name="project.main" value="Runner"/>
-    <property name="project.name" value="metafast"/>
+    <property name="project.name" value="metacherchant"/>
     <property name="project.jar" value="${jars.dir}/${project.name}.jar"/>
     <property name="project.sh" value="${jars.dir}/${project.name}.sh"/>
     <property name="project.bat" value="${jars.dir}/${project.name}.bat"/>
 
     
 
-    <target name="metafast">
+    <target name="metacherchant">
         <mkdir dir="${bin.dir}"/>
         
         <javac srcdir="${src.dir}"

@@ -6,21 +6,21 @@ within a metagenome, which is based on [MetaFast](https://github.com/ctlab/metaf
 ### Installation
 
 To run MetaCherchant you need to have JRE 1.6 or higher installed and have either of
-these three files: `metafast.sh` for Linux/MacOS, `metafast.bat` for Windows or `metafast.jar` for any OS.
+these three files: `metacherchant.sh` for Linux/MacOS, `metacherchant.bat` for Windows or `metacherchant.jar` for any OS.
 
 ### Running ***MetaCherchant***
 
 To run MetaCherchant use the following syntax:
-* `metafast.sh [<Launch options>]`
-* `metafast.bat [<Launch options>]`
-* `java -jar metafast.jar [<Launch options>]`
+* `metacherchant.sh [<Launch options>]`
+* `metacherchant.bat [<Launch options>]`
+* `java -jar metacherchant.jar [<Launch options>]`
 
 ### Usage example
 
 Here's the bash script showing the typical usage of MetaCherchant:
 
 ~~~
-./metafast.sh --tool environment-finder \
+./metacherchant.sh --tool environment-finder \
 	--k 31 \
 	--coverage=5 \
 	--reads $READS_DIR/*.fasta \
@@ -45,7 +45,7 @@ Here's the bash script showing the typical usage of MetaCherchant:
 There is also a _multi_ mode, where you can take multiple graph built as described above and join them into a single graph. Here's how:
 
 ~~~
-./metafast.sh \
+./metacherchant.sh \
 	--tool environment-finder-multi \
 	--seq OXA-347.fasta \
 	--work-dir "k31/TUE-S2_3_4/workDir" \
