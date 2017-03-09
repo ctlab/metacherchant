@@ -92,6 +92,12 @@ public class EnvironmentFinderMain extends Tool {
             .create()
     );
 
+    public final Parameter<Boolean> trimPaths = addParameter(new BoolParameterBuilder("trim")
+            .withDescription("trim all not maximal paths?")
+            .withDefaultValue(false)
+            .create()
+    );
+
     private BigLong2ShortHashMap reads;
     private List<DnaQ> sequences;
     private HashFunction hasher;
@@ -166,7 +172,7 @@ public class EnvironmentFinderMain extends Tool {
             String outputPrefix = getOutputPrefix(i);
             execService.execute(new OneSequenceCalculator(sequences.get(i).toString(), k.get(),
                     minCoverage.get(), outputPrefix, this.hasher, reads, logger,
-                    bothDirections.get(), chunkLength.get(), getTerminationMode()));
+                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
         }
         execService.shutdown();
 

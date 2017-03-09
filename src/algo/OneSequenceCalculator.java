@@ -28,6 +28,7 @@ public class OneSequenceCalculator implements Runnable {
     private final Logger logger;
     private final int chunkLength;
     private final TerminationMode termMode;
+    private final boolean trimPaths;
 
     private final Map<String, Integer> subgraph;
 
@@ -35,7 +36,7 @@ public class OneSequenceCalculator implements Runnable {
     private SingleNode[] nodes;
     private boolean fail = false;
 
-    public OneSequenceCalculator(String sequence, int k, int minOccurences, String outputPrefix, HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections, int chunkLength, TerminationMode termMode) {
+    public OneSequenceCalculator(String sequence, int k, int minOccurences, String outputPrefix, HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections, int chunkLength, TerminationMode termMode, boolean trimPaths) {
         this.sequence = sequence.toString();
         this.k = k;
         this.outputPrefix = outputPrefix;
@@ -46,6 +47,7 @@ public class OneSequenceCalculator implements Runnable {
         this.bothDirections = bothDirections;
         this.chunkLength = chunkLength;
         this.termMode = termMode;
+        this.trimPaths = trimPaths;
 
         this.subgraph = new HashMap<String, Integer>();
     }
@@ -66,9 +68,22 @@ public class OneSequenceCalculator implements Runnable {
         if (fail) {
             return;
         }
-//        extendEnvironment();
+        extendEnvironment();
+//        printGene();
         printEnvironment();
         createPicture();
+    }
+
+    private void printGene() {
+        File output = new File(outputPrefix + "/gene.fasta");
+        PrintWriter out;
+        try {
+            out = new PrintWriter(output);
+            out.println(sequence);
+            out.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     private void buildEnvironment() {
@@ -91,12 +106,13 @@ public class OneSequenceCalculator implements Runnable {
     void runBfs(int dir) { // -1 - backward, +1 - forward, 0 - both
         List<String> queue = new ArrayList<String>();
         Map<String, Integer> distanceToKmer = new HashMap<String, Integer>();
+        Set<String> lastKmers = new HashSet<String>();
+
         for (int i = 0; i + k <= sequence.length(); i++) {
             String kmer = sequence.substring(i, i + k);
             int occs = reads.get(getKmerKey(kmer));
             if (occs >= minOccurences) {
                 queue.add(kmer);
-                addToSubgraph(kmer);
                 distanceToKmer.put(kmer, 0);
             }
         }
@@ -108,31 +124,69 @@ public class OneSequenceCalculator implements Runnable {
         while (head < queue.size()) {
             String kmer = queue.get(head++);
             int distance = distanceToKmer.get(kmer);
-            String[] neighbors = null;
-            switch (dir) {
-                case -1: {
-                    neighbors = leftNeighbors(kmer);
-                    break;
-                }
-                case 1: {
-                    neighbors = rightNeighbors(kmer);
-                    break;
-                }
-                case 0: {
-                    neighbors = allNeighbors(kmer);
-                    break;
-                }
-            }
+            String[] neighbors = getNeighborsByDir(dir, kmer);
             for (String neighbor : neighbors) {
                 int occs = reads.get(getKmerKey(neighbor));
-                if (occs >= minOccurences && termMode.allowsAddition(distanceToKmer, neighbor, distance + 1)) {
-                    queue.add(neighbor);
-                    addToSubgraph(neighbor);
-                    distanceToKmer.put(neighbor, distance + 1);
+                if (occs >= minOccurences) {
+                    if (termMode.allowsAddition(distanceToKmer, neighbor, distance + 1)) {
+                        queue.add(neighbor);
+                        distanceToKmer.put(neighbor, distance + 1);
+                    } else {
+                        lastKmers.add(kmer);
+                    }
                 }
             }
         }
+        if (trimPaths) {
+            runTrimPaths(lastKmers, distanceToKmer, dir);
+        }
+        for (String kmer : distanceToKmer.keySet()) {
+            addToSubgraph(kmer);
+        }
     }
+
+    private String[] getNeighborsByDir(int dir, String kmer) {
+        String[] neighbors = null;
+        switch (dir) {
+            case -1: {
+                neighbors = leftNeighbors(kmer);
+                break;
+            }
+            case 1: {
+                neighbors = rightNeighbors(kmer);
+                break;
+            }
+            case 0: {
+                neighbors = allNeighbors(kmer);
+                break;
+            }
+        }
+        return neighbors;
+    }
+
+    private void runTrimPaths(Set<String> lastKmers, Map<String, Integer> distanceToKmer, int dir) {
+        List<String> queue = new ArrayList<String>();
+        Set<String> visitedKmers = new HashSet<String>();
+
+        for (String kmer : lastKmers) {
+            queue.add(kmer);
+            visitedKmers.add(kmer);
+        }
+
+        int head = 0;
+        while (head < queue.size()) {
+            String kmer = queue.get(head++);
+            String[] neighbors = getNeighborsByDir(-dir, kmer);
+            for (String neighbor : neighbors) {
+                if (distanceToKmer.containsKey(neighbor) && !visitedKmers.contains(neighbor)) {
+                    queue.add(neighbor);
+                    visitedKmers.add(neighbor);
+                }
+            }
+        }
+        distanceToKmer.keySet().retainAll(visitedKmers);
+    }
+
 
     private void extendEnvironment() {
         Iterator<Map.Entry<String, Integer>> iter = subgraph.entrySet().iterator();
