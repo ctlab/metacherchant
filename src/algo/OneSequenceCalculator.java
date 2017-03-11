@@ -66,6 +66,7 @@ public class OneSequenceCalculator implements Runnable {
         logger.info("Finding environment for sequence " + shortenLabel(sequence, k));
         buildEnvironment();
         if (fail) {
+            logger.info("Could not find any k-mers of the target gene in the input, halting.");
             return;
         }
         extendEnvironment();

@@ -141,7 +141,7 @@ public class EnvironmentFinderMain extends Tool {
         if (maxKmers.get() != null) {
             termMode.addRestriction(TerminationModeType.MAX_KMERS, maxKmers.get());
         }
-        if (maxRadius != null) {
+        if (maxRadius.get() != null) {
             termMode.addRestriction(TerminationModeType.MAX_RADIUS, maxRadius.get());
         }
         return termMode;
