@@ -92,7 +92,12 @@ public class  LargeKIOUtils {
         for (File file : files) {
             Tool.info(logger, "Loading file " + file.getName() + "...");
 
-            NamedSource<Dna> reader = ReadersUtils.readDnaLazy(file);
+            NamedSource<Dna> reader = null;
+            try {
+                reader = ReadersUtils.readDnaLazy(file);
+            } catch (IOException e) {
+                throw new ExecutionFailedException("Failed to read from file " + file.getPath());
+            }
 
             ReadsDispatcher dispatcher = new ReadsDispatcher(reader, READS_WORK_RANGE_SIZE, hmForMonitoring);
             CountDownLatch latch = new CountDownLatch(workers.length);

@@ -113,7 +113,11 @@ public class EnvironmentFinderMain extends Tool {
                     availableProcessors.get(), logger);
         }
         logger.info("Hashtable size: " + this.reads.size() + " kmers");
-        this.sequences = ReadersUtils.loadDnaQs(seqsFile.get());
+        try {
+            this.sequences = ReadersUtils.loadDnaQs(seqsFile.get());
+        } catch (IOException e) {
+            throw new ExecutionFailedException("Could not load sequences from " + seqsFile.get().getPath());
+        }
     }
 
     private HashFunction determineHashFunction() {
