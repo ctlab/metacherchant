@@ -1,6 +1,6 @@
 package tools;
 
-import algo.MultiSequenceCalculator;
+import algo.MultiSequenceCalculator; 
 import io.RichFastaReader;
 import io.graph.DeBruijnGraphUtils;
 import ru.ifmo.genetics.utils.tool.ExecutionFailedException;
@@ -10,6 +10,7 @@ import ru.ifmo.genetics.utils.tool.inputParameterBuilder.*;
 
 import java.io.*;
 import java.util.*;
+
 
 public class EnvironmentFinderMultiMain extends Tool {
     public static final String NAME = "environment-finder-multi";
@@ -64,7 +65,7 @@ public class EnvironmentFinderMultiMain extends Tool {
                 }
             }
         }
-
+        
         try {
             RichFastaReader rfr = new RichFastaReader(seqFile.get());
             sequence = rfr.getDnas().get(geneId.get() - 1).toString();
@@ -72,7 +73,7 @@ public class EnvironmentFinderMultiMain extends Tool {
         } catch (FileNotFoundException e) {
             throw new ExecutionFailedException("Could not load sequence file", e);
         }
-
+       
     }
 
 
@@ -81,7 +82,11 @@ public class EnvironmentFinderMultiMain extends Tool {
         MultiSequenceCalculator calc = new MultiSequenceCalculator(sequence, k, outputDir.get().getPath(), logger, graphs);
         calc.run();
         printGene();
+        printProbability();
+        
         logger.info("Finished processing!");
+        
+      
     }
 
     private void printGene() {
@@ -95,6 +100,70 @@ public class EnvironmentFinderMultiMain extends Tool {
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
+    }
+    
+    private void printProbability(){
+    	 File outputSym = new File(outputDir.get().getPath() + "/Jacard_sym.txt");
+    	 File outputAlt = new File(outputDir.get().getPath() + "/Jacard_alt.txt");
+         PrintWriter outSym;
+         PrintWriter outAlt;
+         try {
+             outSym = new PrintWriter(outputSym);
+             outAlt = new PrintWriter(outputAlt);
+             
+             outSym.println("The" + "[31mWarning! " + "symmetric <<Jaccard distance>> (1 - AB/AUB):");
+             outSym.println();
+             outAlt.println("The" + "[31mWarning! " + "alternative <<Jaccard distance>> (1 - AB/A):");
+             outAlt.println();
+        	 int[][] difference = new int[graphs.length][graphs.length];
+        	 int[][] differenceAlt = new int[graphs.length][graphs.length];
+             int[][] union = new int[graphs.length][graphs.length]; 
+             int i = 0;
+             for (Map<String, Integer> graphF: graphs){
+             	int j = 0;
+             	for (Map<String, Integer> graphS: graphs){
+             		for (String kmer : graphF.keySet()) { 
+             			if (graphS.containsKey(kmer) == false){
+             				difference[i][j] += graphF.get(kmer);
+             				differenceAlt[i][j] += graphF.get(kmer);
+             				union[i][j] += graphF.get(kmer);  
+             			}
+             			else{
+             				difference[i][j] += Math.abs(graphF.get(kmer) - graphS.get(kmer));
+             				differenceAlt[i][j] += Math.abs(graphF.get(kmer) - graphS.get(kmer));
+             				union[i][j] += Math.max(graphF.get(kmer), graphS.get(kmer));
+             			}
+             				
+             		}
+             		for (String kmer : graphS.keySet()) { 
+             			if (graphF.containsKey(kmer) == false){
+             				difference[i][j] += graphS.get(kmer);
+             				union[i][j] += graphS.get(kmer);  
+             			}
+             		}
+             		j++;
+             	}
+             	i++;
+             }
+             
+             for (i = 0; i < graphs.length; i++){
+             	outSym.print(envFiles.get()[i]);
+             	outAlt.print(envFiles.get()[i]);
+             	for (int j = 0; j < graphs.length; j++){
+             		int intersection = union[i][j] - difference[i][j];
+             		outSym.printf("%6.2f ", 1 - intersection/(float)union[i][j]);
+             		outAlt.printf("%6.2f ", 1 - intersection/(float)(union[i][j] - differenceAlt[i][j]));
+             	}
+             	outSym.println();
+             	outAlt.println();
+             }
+             
+             outSym.close();
+             outAlt.close();
+        	 
+         } catch (FileNotFoundException e) {
+             e.printStackTrace();
+         }
     }
 
 
