@@ -95,7 +95,7 @@ public class GFAWriterMulti {
             if (node.isGeneNode) {
                 return COLOR_GREEN;
             }
-            switch ((int) node.mask) {
+            switch ((int) node.graphs.size()) {
                 case 1:
                     return COLOR_RED;
                 case 2:
@@ -107,7 +107,7 @@ public class GFAWriterMulti {
             if (node.isGeneNode) {
                 return COLOR_GREEN;
             }
-            int value = 256 * Long.bitCount(node.mask) / graphs.length;
+            int value = 256 * node.graphs.size() / graphs.length;
             return String.format("#%02X%02X%02X", value, value, value);
         }
     }

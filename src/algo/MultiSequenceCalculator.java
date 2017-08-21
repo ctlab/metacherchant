@@ -80,8 +80,8 @@ public class MultiSequenceCalculator implements Runnable {
             Map<String, Integer> subgraph = graphs[i];
             for (String kmer : subgraph.keySet()) {
                 MultiNode node = nodeByKmer.get(kmer);
-                node.addFile(i);
-                node.rc.addFile(i);
+                node.addGraph(i);
+                node.rc.addGraph(i);
             }
         }
 
@@ -116,7 +116,7 @@ public class MultiSequenceCalculator implements Runnable {
     }
 
     private boolean canBeMerged(MultiNode first, MultiNode second) {
-        return first.neighbors.size() == 1 && second.neighbors.size() == 1 && first.isGeneNode == second.isGeneNode && first.mask == second.mask;
+        return first.neighbors.size() == 1 && second.neighbors.size() == 1 && first.isGeneNode == second.isGeneNode && first.graphs.equals(second.graphs);
     }
 
     private void mergeNodes(MultiNode firstPlus, MultiNode secondMinus) {
