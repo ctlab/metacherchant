@@ -107,15 +107,6 @@ public class EnvironmentFinderMain extends Tool {
             .withDefaultValue(1)
             .create());
 
-    public final Parameter<String> assembler = addParameter(new StringParameterBuilder("assembler")
-            .withDescription("assembler which you want to use")
-            .withDefaultValue("None")
-            .create());
-
-    public final Parameter<String> assemblerPath = addParameter(new StringParameterBuilder("assemblerpath")
-            .withDescription("path of the assembler")
-            .withDefaultValue("")
-            .create());
 
     private BigLong2ShortHashMap reads;
     private List<DnaQ> sequences;

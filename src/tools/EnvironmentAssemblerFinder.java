@@ -1,13 +1,26 @@
 package tools;
 
 import algo.AssemblerCalculator;
+import algo.OneSequenceCalculator;
+import algo.ReadsFilter;
+import algo.TerminationMode;
+import io.IOUtils;
+import io.LargeKIOUtils;
+import ru.ifmo.genetics.dna.DnaQ;
+import ru.ifmo.genetics.io.ReadersUtils;
+import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
 import ru.ifmo.genetics.utils.tool.ExecutionFailedException;
 import ru.ifmo.genetics.utils.tool.Parameter;
 import ru.ifmo.genetics.utils.tool.Tool;
 import ru.ifmo.genetics.utils.tool.inputParameterBuilder.*;
+import utils.FNV1AHash;
+import utils.HashFunction;
+import utils.PolynomialHash;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class EnvironmentAssemblerFinder extends Tool{
@@ -96,40 +109,108 @@ public class EnvironmentAssemblerFinder extends Tool{
             .create());
 
     public final Parameter<String> assembler = addParameter(new StringParameterBuilder("assembler")
+            .mandatory()
             .withDescription("assembler which you want to use")
-            .withDefaultValue("None")
+            //.withDefaultValue("None")
             .create());
 
     public final Parameter<String> assemblerPath = addParameter(new StringParameterBuilder("assemblerpath")
+            .mandatory()
             .withDescription("path of the assembler")
-            .withDefaultValue("")
+            //.withDefaultValue("")
             .create());
 
+    private BigLong2ShortHashMap reads;
+    private List<DnaQ> sequences;
+    private HashFunction hasher;
 
-    private String getOutputPrefix(int i) {
-        String outputPrefix = outputDir.get().getPath() + "/";
-        if (readsFiles.get().length > 1) {
-            outputPrefix += (i + 1) + "/";
+    public void loadInput() throws ExecutionFailedException {
+        if (k.get() > 31 || forceHashing.get()) {
+            logger.info("Reading hashes of k-mers instead");
+            this.hasher = LargeKIOUtils.hash = determineHashFunction();
+            this.reads = LargeKIOUtils.loadReads(readsFiles.get(), k.get(), 0,
+                    availableProcessors.get(), logger);
+        } else {
+            this.reads = IOUtils.loadReads(readsFiles.get(), k.get(), 0,
+                    availableProcessors.get(), logger);
         }
-        return outputPrefix;
+        logger.info("Hashtable size: " + this.reads.size() + " kmers");
+        try {
+            this.sequences = ReadersUtils.loadDnaQs(seqsFile.get());
+        } catch (IOException e) {
+            throw new ExecutionFailedException("Could not load sequences from " + seqsFile.get().getPath());
+        }
+    }
+
+
+    private HashFunction determineHashFunction() {
+        if (k.get() <= 31 && !forceHashing.get()) {
+            return null;
+        }
+        String name = hashFunction.get().toLowerCase();
+        if (name.equals("fnv1a")) {
+            logger.info("Using FNV1a hash function");
+            return new FNV1AHash();
+        } else {
+            logger.info("Using default polynomial hash function");
+            return new PolynomialHash();
+        }
+    }
+
+    private TerminationMode getTerminationMode() throws ExecutionFailedException {
+        TerminationMode termMode = new TerminationMode();
+        if (maxKmers.get() == null && maxRadius.get() == null) {
+            throw new ExecutionFailedException("At least one of --maxkmers and --maxradius parameters should be set");
+        }
+        if (maxKmers.get() != null) {
+            termMode.addRestriction(TerminationMode.TerminationModeType.MAX_KMERS, maxKmers.get());
+        }
+        if (maxRadius.get() != null) {
+            termMode.addRestriction(TerminationMode.TerminationModeType.MAX_RADIUS, maxRadius.get());
+        }
+        return termMode;
     }
 
     @Override
     protected void runImpl() throws ExecutionFailedException {
-        /*ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
-
-        for (int i = 0; i < readsFiles.get().length; i++) {
-            execService.execute(new AssemblerCalculator(assembler.get(), assemblerPath.get(), outputPrefix, logger));
-        }
-        execService.shutdown();
-        */
         if (readsFiles.get().length > 1) {
             logger.info("EnvironmentAssemblerFinder works only with one input read!");
             return;
         }
-        String outputPrefix = getOutputPrefix(0);
+        loadInput();
+
+        String outputPrefix = outputDir.get().getPath() + "/";
+
+        OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
+                minCoverage.get(), outputPrefix, this.hasher, reads, logger,
+                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
+        calc.run();
+        new ReadsFilter(readsFiles.get()[0], calc, outputPrefix, k.get(), percentFiltration.get(), logger).run();
+        logger.info("Filtration done");
+        logger.info("Finished processing all sequences!");
+
         new AssemblerCalculator(assembler.get(), assemblerPath.get(), outputPrefix, logger).run();
         logger.info("Finished assembling all sequences!");
+
+        outputDir.set(new File(outputDir.get() + "/result"));
+        String path = outputPrefix +
+                (assembler.get().equals("spades") ? "/out_spades/contigs.fasta" : "/out_megahit/final.contigs.fasta");
+        File[] f = {new File(path)};
+        readsFiles.set(f);
+        k.set(55);
+        minCoverage.set(0);
+
+        loadInput();
+
+        outputPrefix = outputDir.get().getPath() + "/";
+
+        calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
+                minCoverage.get(), outputPrefix, this.hasher, reads, logger,
+                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
+        calc.run();
+        new ReadsFilter(readsFiles.get()[0], calc, outputPrefix, k.get(), percentFiltration.get(), logger).run();
+        logger.info("Filtration done");
+        logger.info("Finished processing all sequences!");
     }
 
     @Override
@@ -142,69 +223,7 @@ public class EnvironmentAssemblerFinder extends Tool{
     }
 
     public static void main(String[] args) {
-        new EnvironmentFinderMain().mainImpl(args);
-
-        Map<String, String> asmArgs = new HashMap<String, String>();
-        for (int i = 0; i < args.length - 1; i += 2) {
-            asmArgs.put(args[i], args[i + 1]);
-        }
-        String outputPrefix = "";
-        if (asmArgs.containsKey("-o")) {
-            asmArgs.put("-o", asmArgs.get("-o") + "/asm");
-            outputPrefix = asmArgs.get("-o");
-        }
-        if (asmArgs.containsKey("--output")) {
-            asmArgs.put("--output", asmArgs.get("--output") + "/asm");
-            outputPrefix = asmArgs.get("--output");
-        }
-        asmArgs.put("--work-dir", asmArgs.get("--work-dir") + "/asm");
-        String[] argsAssembler = new String[asmArgs.keySet().size() * 2];
-
-        for (int i = 0; i < asmArgs.keySet().size(); i++) {
-            String key = asmArgs.keySet().toArray()[i].toString();
-            argsAssembler[i * 2] = key;
-            argsAssembler[i * 2 + 1] = asmArgs.get(key);
-        }
-        new EnvironmentAssemblerFinder().mainImpl(argsAssembler);
-
-        Map<String, String> dictionaryArgs = new HashMap<String, String>();
-        for (int i = 0; i < args.length - 1; i += 2) {
-            dictionaryArgs.put(args[i], args[i + 1]);
-        }
-        if (dictionaryArgs.get("--assembler") != null && dictionaryArgs.get("--assembler").equals("spades")) {
-            dictionaryArgs.put("--reads", outputPrefix + "/out_spades/" + "contigs.fasta");
-        }
-
-        if (dictionaryArgs.get("--assembler") != null && dictionaryArgs.get("--assembler").equals("megahit")) {
-            dictionaryArgs.put("--reads", outputPrefix + "/out_megahit/" + "final.contigs.fasta");
-        }
-
-        dictionaryArgs.put("--coverage", "0");
-        dictionaryArgs.put("--work-dir", dictionaryArgs.get("--work-dir") + "/result");
-        if (dictionaryArgs.containsKey("-o")) {
-            dictionaryArgs.put("-o", dictionaryArgs.get("-o") + "/result");
-        }
-        if (dictionaryArgs.containsKey("--output")) {
-            dictionaryArgs.put("--output", dictionaryArgs.get("--output") + "/result");
-        }
-
-        if (dictionaryArgs.containsKey("-k")) {
-            dictionaryArgs.put("-k", "55");
-        }
-        if (dictionaryArgs.containsKey("--k")) {
-            dictionaryArgs.put("--k", "55");
-        }
-
-        String[] argsAfterAssembler = new String[dictionaryArgs.keySet().size() * 2];
-
-        for (int i = 0; i < dictionaryArgs.keySet().size(); i++) {
-            String key = dictionaryArgs.keySet().toArray()[i].toString();
-            argsAfterAssembler[i * 2] = key;
-            argsAfterAssembler[i * 2 + 1] = dictionaryArgs.get(key);
-            System.out.println(argsAfterAssembler[i] + " " + argsAfterAssembler[i+1]);
-        }
-
-        new EnvironmentFinderMain().mainImpl(argsAfterAssembler);
+        new EnvironmentAssemblerFinder().mainImpl(args);
     }
 }
 //--k 3 --reads reads.fasta --seq genes.fasta -o ress --assembler megahit --assemblerpath /home/mariya/megahit/megahit --maxkmers 1000 --coverage 0 --procfiltration 100

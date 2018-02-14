@@ -40,7 +40,7 @@ public class AssemblerCalculator implements Runnable {
                 }
                 // or better take assembly_graph.gfa?
             } catch (IOException e) {
-                logger.info(e.getMessage());
+                e.printStackTrace();
             }
         }
         if (assembler.equals("megahit")) {
@@ -74,7 +74,7 @@ public class AssemblerCalculator implements Runnable {
                 }
 
             } catch (IOException e) {
-                logger.info(e.getMessage());
+                e.printStackTrace();
             }
         }
     }
