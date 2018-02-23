@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class EnvironmentAssemblerFinder extends Tool{
     public static final String NAME = "environment-assembler-finder";
@@ -125,9 +126,6 @@ public class EnvironmentAssemblerFinder extends Tool{
     private HashFunction hasher;
 
     public void loadInput() throws ExecutionFailedException {
-        reads.reset();
-        sequences.clear();
-        hasher = null;
         if (k.get() > 31 || forceHashing.get()) {
             logger.info("Reading hashes of k-mers instead");
             this.hasher = LargeKIOUtils.hash = determineHashFunction();
@@ -176,12 +174,13 @@ public class EnvironmentAssemblerFinder extends Tool{
 
     @Override
     protected void runImpl() throws ExecutionFailedException {
+        loadInput();
+
         if (sequences.size() > 1) {
             logger.info("EnvironmentAssemblerFinder works only with one input sequence!");
             return;
         }
 
-        loadInput();
         String outputPrefix = outputDir.get().getPath() + "/";
         OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
                 minCoverage.get(), outputPrefix, this.hasher, reads, logger,
@@ -193,6 +192,11 @@ public class EnvironmentAssemblerFinder extends Tool{
                     percentFiltration.get(), logger));
         }
         execService.shutdown();
+        try {
+            while (!execService.awaitTermination(100, TimeUnit.MINUTES)){}
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         logger.info("Filtration done!");
         logger.info("Finished processing all sequences!");
 
@@ -201,6 +205,11 @@ public class EnvironmentAssemblerFinder extends Tool{
             execServiceAsm.execute(new AssemblerCalculator(assembler.get(), assemblerPath.get(), outputPrefix, i, logger));
         }
         execServiceAsm.shutdown();
+        try {
+            while (!execServiceAsm.awaitTermination(100, TimeUnit.MINUTES)){}
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         logger.info("Finished assembling all sequences!");
 
         outputDir.set(new File(outputDir.get() + "/result"));

@@ -57,6 +57,7 @@ public class AssemblerCalculator implements Runnable {
                 }
             } catch (IOException e) {
                 e.printStackTrace();
+                logger.info(e.getMessage());
             }
         }
         if (assembler.equals("megahit")) {
@@ -91,6 +92,7 @@ public class AssemblerCalculator implements Runnable {
 
             } catch (IOException e) {
                 e.printStackTrace();
+                logger.info(e.getMessage());
             }
         }
     }
