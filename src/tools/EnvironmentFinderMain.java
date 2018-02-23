@@ -162,26 +162,28 @@ public class EnvironmentFinderMain extends Tool {
     @Override
     protected void runImpl() throws ExecutionFailedException {
         loadInput();
-        if (readsFiles.get().length == 1) {
+        ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
+        if (sequences.size() == 1) {
             String outputPrefix = getOutputPrefix(0);
             OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
                     minCoverage.get(), outputPrefix, this.hasher, reads, logger,
                     bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
             calc.run();
-            new ReadsFilter(readsFiles.get()[0], calc, outputPrefix, k.get(), percentFiltration.get(), logger).run();
-            logger.info("Filtration done");
+            for (int i = 0; i < readsFiles.get().length; i++) {
+                execService.execute(new ReadsFilter(readsFiles.get()[i], calc, outputPrefix, i, k.get(),
+                        percentFiltration.get(), logger));
+            }
+            logger.info("Filtration done!");
         } else {
-
-            ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
-
             for (int i = 0; i < sequences.size(); i++) {
                 String outputPrefix = getOutputPrefix(i);
                 execService.execute(new OneSequenceCalculator(sequences.get(i).toString(), k.get(),
                         minCoverage.get(), outputPrefix, this.hasher, reads, logger,
                         bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
             }
-            execService.shutdown();
         }
+
+        execService.shutdown();
         logger.info("Finished processing all sequences!");
     }
 

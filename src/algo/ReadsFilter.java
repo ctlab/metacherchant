@@ -16,21 +16,23 @@ public class ReadsFilter implements Runnable {
     private OneSequenceCalculator calc;
     private File file;
     private final String outputPrefix;
+    private final int readsNumber;
     private int k;
     private int percentFiltration;
     private final Logger logger;
 
-    public ReadsFilter(File file, OneSequenceCalculator calc, String outputPrefix, int k, int percentFiltration, Logger logger) {
+    public ReadsFilter(File file, OneSequenceCalculator calc, String outputPrefix, int readsNumber, int k, int percentFiltration, Logger logger) {
         this.file = file;
         this.calc = calc;
         this.outputPrefix = outputPrefix;
+        this.readsNumber = readsNumber;
         this.k = k;
         this.percentFiltration = percentFiltration;
         this.logger = logger;
     }
 
     private void reader() throws ExecutionFailedException {
-        File outputCutReads = new File(outputPrefix + "/cutReads.fastq");
+        File outputCutReads = new File(outputPrefix + "/cutReads" + readsNumber + ".fastq");
         outputCutReads.getParentFile().mkdirs();
         NamedSource<Dna> reader = null;
         try {

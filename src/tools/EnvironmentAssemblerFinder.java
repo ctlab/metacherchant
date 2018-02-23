@@ -19,9 +19,9 @@ import utils.PolynomialHash;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class EnvironmentAssemblerFinder extends Tool{
     public static final String NAME = "environment-assembler-finder";
@@ -125,6 +125,9 @@ public class EnvironmentAssemblerFinder extends Tool{
     private HashFunction hasher;
 
     public void loadInput() throws ExecutionFailedException {
+        reads.reset();
+        sequences.clear();
+        hasher = null;
         if (k.get() > 31 || forceHashing.get()) {
             logger.info("Reading hashes of k-mers instead");
             this.hasher = LargeKIOUtils.hash = determineHashFunction();
@@ -173,43 +176,56 @@ public class EnvironmentAssemblerFinder extends Tool{
 
     @Override
     protected void runImpl() throws ExecutionFailedException {
-        if (readsFiles.get().length > 1) {
-            logger.info("EnvironmentAssemblerFinder works only with one input read!");
+        if (sequences.size() > 1) {
+            logger.info("EnvironmentAssemblerFinder works only with one input sequence!");
             return;
         }
+
         loadInput();
-
         String outputPrefix = outputDir.get().getPath() + "/";
-
         OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
                 minCoverage.get(), outputPrefix, this.hasher, reads, logger,
                 bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
         calc.run();
-        new ReadsFilter(readsFiles.get()[0], calc, outputPrefix, k.get(), percentFiltration.get(), logger).run();
-        logger.info("Filtration done");
+        ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
+        for (int i = 0; i < readsFiles.get().length; i++) {
+            execService.execute(new ReadsFilter(readsFiles.get()[i], calc, outputPrefix, i, k.get(),
+                    percentFiltration.get(), logger));
+        }
+        execService.shutdown();
+        logger.info("Filtration done!");
         logger.info("Finished processing all sequences!");
 
-        new AssemblerCalculator(assembler.get(), assemblerPath.get(), outputPrefix, logger).run();
+        ExecutorService execServiceAsm = Executors.newFixedThreadPool(maxThreads.get());
+        for (int i = 0; i < readsFiles.get().length; i++) {
+            execServiceAsm.execute(new AssemblerCalculator(assembler.get(), assemblerPath.get(), outputPrefix, i, logger));
+        }
+        execServiceAsm.shutdown();
         logger.info("Finished assembling all sequences!");
 
         outputDir.set(new File(outputDir.get() + "/result"));
-        String path = outputPrefix +
-                (assembler.get().equals("spades") ? "/out_spades/contigs.fasta" : "/out_megahit/final.contigs.fasta");
-        File[] f = {new File(path)};
+        File[] f = new File[readsFiles.get().length];
+        for (int i = 0; i < readsFiles.get().length; i++) {
+            f[i] = new File(outputPrefix + "contigs" + i + ".fasta");
+        }
         readsFiles.set(f);
         k.set(55);
         minCoverage.set(0);
 
         loadInput();
-
         outputPrefix = outputDir.get().getPath() + "/";
 
         calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
                 minCoverage.get(), outputPrefix, this.hasher, reads, logger,
                 bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
         calc.run();
-        new ReadsFilter(readsFiles.get()[0], calc, outputPrefix, k.get(), percentFiltration.get(), logger).run();
-        logger.info("Filtration done");
+        ExecutorService execService2 = Executors.newFixedThreadPool(maxThreads.get());
+        for (int i = 0; i < readsFiles.get().length; i++) {
+            execService2.execute(new ReadsFilter(readsFiles.get()[i], calc, outputPrefix, i, k.get(),
+                    percentFiltration.get(), logger));
+        }
+        execService2.shutdown();
+        logger.info("Filtration done!");
         logger.info("Finished processing all sequences!");
     }
 
