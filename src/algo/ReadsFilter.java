@@ -3,71 +3,73 @@ package algo;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.lang.ProcessBuilder.Redirect;
 
+import org.apache.log4j.Logger;
 import ru.ifmo.genetics.dna.Dna;
 import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.io.ReadersUtils;
-import ru.ifmo.genetics.io.readers.FastqReader;
 import ru.ifmo.genetics.io.formats.QualityFormat;
 import ru.ifmo.genetics.io.sources.NamedSource;
 import ru.ifmo.genetics.utils.tool.ExecutionFailedException;
-import ru.ifmo.genetics.utils.tool.Tool;
 
 public class ReadsFilter implements Runnable {
     private OneSequenceCalculator calc;
-    private File[] files;
+    private File file;
+    private final String outputPrefix;
+    private final int readsNumber;
     private int k;
-    private int procentFiltration;
+    private int percentFiltration;
+    private final Logger logger;
 
-    public ReadsFilter(File[] files, OneSequenceCalculator calc, int k, int procentFiltration) {
-        this.files = files;
+    public ReadsFilter(File file, OneSequenceCalculator calc, String outputPrefix, int readsNumber, int k, int percentFiltration, Logger logger) {
+        this.file = file;
         this.calc = calc;
+        this.outputPrefix = outputPrefix;
+        this.readsNumber = readsNumber;
         this.k = k;
-        this.procentFiltration = procentFiltration;
+        this.percentFiltration = percentFiltration;
+        this.logger = logger;
     }
 
-    public void reader() throws ExecutionFailedException {
-        if (files.length == 1) {
-            File file = files[0];
-            File outputCutReads = new File(calc.outputPrefix + "/cutReads.fastq");
-            outputCutReads.getParentFile().mkdirs();
-            NamedSource<Dna> reader = null;
-            try {
-                PrintWriter out;
-                out = new PrintWriter(outputCutReads);
-                reader = ReadersUtils.readDnaLazy(file);
-                ReadersUtils.loadDnaQs(file);
-                QualityFormat qualF = ReadersUtils.determineQualityFormat(file);
-                NamedSource<DnaQ> quals = ReadersUtils.readDnaQLazy(file);
-                int indexCutRead = 0;
-                for (DnaQ qual : quals) {
-                    String read = qual.toString();
-                    int len = read.length();
-                    int kmersInRead = len - k + 1;
-                    int kmersFiltration = kmersInRead * procentFiltration / 100;
-                    kmersFiltration = Math.max(1, kmersFiltration);
-                    int numberCoverageKmers = 0; 
-                    for (int i = 0; i < len - k; i++) {
-                        if (calc.isContainedInSubgraph(read.substring(i, i + k))) {
-                            numberCoverageKmers++;
+    private void reader() throws ExecutionFailedException {
+        File outputCutReads = new File(outputPrefix + "/cutReads" + readsNumber + ".fastq");
+        outputCutReads.getParentFile().mkdirs();
+        NamedSource<Dna> reader = null;
+        try {
+            PrintWriter out;
+            out = new PrintWriter(outputCutReads);
+            reader = ReadersUtils.readDnaLazy(file);
+            ReadersUtils.loadDnaQs(file);
+            QualityFormat qualF = ReadersUtils.determineQualityFormat(file);
+            NamedSource<DnaQ> quals = ReadersUtils.readDnaQLazy(file);
+            int indexCutRead = 0;
+            for (DnaQ qual : quals) {
+                String read = qual.toString();
+                int len = read.length();
+                int kmersInRead = len - k + 1;
+                int kmersFiltration = kmersInRead * percentFiltration / 100;
+                kmersFiltration = Math.max(1, kmersFiltration);
+                int numberCoverageKmers = 0;
+                for (int i = 0; i < len - k; i++) {
+                    if (calc.isContainedInSubgraph(read.substring(i, i + k))) {
+                        numberCoverageKmers++;
+                    }
+                    if (numberCoverageKmers >= kmersFiltration) {
+                        indexCutRead++;
+                        out.println("@" + indexCutRead + "\n" + read + "\n+");
+                        for (int j = 0; j < len; j++) {
+                            out.print(qualF.getPhredChar(qual.phredAt(j)));
                         }
-                        if (numberCoverageKmers >= kmersFiltration) {
-                            indexCutRead ++;
-                            out.println("@" + indexCutRead + "\n" + read + "\n+");
-                            for (int j = 0; j < len; j++) {
-                                out.print(qualF.getPhredChar(qual.phredAt(j)));
-                            }
-                            out.println();
-                            break;
-                        }
+                        out.println();
+                        break;
                     }
                 }
-                out.close();
-            } catch (IOException e) {
-                throw new ExecutionFailedException("Failed to read from file " + file.getPath());
             }
-        } 
+            out.close();
+        } catch (IOException e) {
+            throw new ExecutionFailedException("Failed to read from file " + file.getPath());
+        }
+
     }
 
     @Override
@@ -75,11 +77,8 @@ public class ReadsFilter implements Runnable {
         try {
             reader();
         } catch (ExecutionFailedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            logger.info(e.getMessage());
         }
-        // TODO Auto-generated method stub
-
     }
 
 }

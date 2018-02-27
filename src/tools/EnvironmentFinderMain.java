@@ -1,6 +1,7 @@
 package tools;
 
 import algo.OneSequenceCalculator;
+import algo.ReadsFilter;
 import algo.TerminationMode;
 import algo.TerminationMode.TerminationModeType;
 import io.*;
@@ -99,35 +100,26 @@ public class EnvironmentFinderMain extends Tool {
             .create()
     );
 
-    public final Parameter<Integer> procentFiltration = addParameter(new IntParameterBuilder("procfiltration")
+    public final Parameter<Integer> percentFiltration = addParameter(new IntParameterBuilder("procfiltration")
             .mandatory()
             .withShortOpt("f")
-            .withDescription("filtration procent // [1 .. 100]")
+            .withDescription("filtration percent // [1 .. 100]")
             .withDefaultValue(1)
             .create());
 
-    public final Parameter<String> assembler = addParameter(new StringParameterBuilder("assembler")
-            .withDescription("assembler wich you want to use")
-            .withDefaultValue("None")
-            .create());
-
-    public final Parameter<String> assemblerPath = addParameter(new StringParameterBuilder("assemblerpath")
-            .withDescription("path of the assembler")
-            .withDefaultValue("")
-            .create());
 
     private BigLong2ShortHashMap reads;
     private List<DnaQ> sequences;
     private HashFunction hasher;
 
-    public void loadInput(File[] localReadsFiles, int localK) throws ExecutionFailedException {
-        if (localK > 31 || forceHashing.get()) {
+    public void loadInput() throws ExecutionFailedException {
+        if (k.get() > 31 || forceHashing.get()) {
             logger.info("Reading hashes of k-mers instead");
-            this.hasher = LargeKIOUtils.hash = determineHashFunction(localK);
-            this.reads = LargeKIOUtils.loadReads(localReadsFiles, localK, 0,
+            this.hasher = LargeKIOUtils.hash = determineHashFunction();
+            this.reads = LargeKIOUtils.loadReads(readsFiles.get(), k.get(), 0,
                     availableProcessors.get(), logger);
         } else {
-            this.reads = IOUtils.loadReads(localReadsFiles, localK, 0,
+            this.reads = IOUtils.loadReads(readsFiles.get(), k.get(), 0,
                     availableProcessors.get(), logger);
         }
         logger.info("Hashtable size: " + this.reads.size() + " kmers");
@@ -139,8 +131,8 @@ public class EnvironmentFinderMain extends Tool {
     }
 
 
-    private HashFunction determineHashFunction(int localK) {
-        if (localK <= 31 && !forceHashing.get()) {
+    private HashFunction determineHashFunction() {
+        if (k.get() <= 31 && !forceHashing.get()) {
             return null;
         }
         String name = hashFunction.get().toLowerCase();
@@ -169,20 +161,30 @@ public class EnvironmentFinderMain extends Tool {
 
     @Override
     protected void runImpl() throws ExecutionFailedException {
-        loadInput(readsFiles.get(), k.get());
+        loadInput();
         ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
-
-        for (int i = 0; i < sequences.size(); i++) {
-            String outputPrefix = getOutputPrefix(i);
-            OneSequenceCalculator calc;
-            execService.execute(calc = new OneSequenceCalculator(sequences.get(i).toString(), k.get(),
+        if (sequences.size() == 1) {
+            String outputPrefix = getOutputPrefix(0);
+            OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
                     minCoverage.get(), outputPrefix, this.hasher, reads, logger,
-                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
+                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
+            calc.run();
+            for (int i = 0; i < readsFiles.get().length; i++) {
+                execService.execute(new ReadsFilter(readsFiles.get()[i], calc, outputPrefix, i, k.get(),
+                        percentFiltration.get(), logger));
+            }
+            logger.info("Filtration done!");
+        } else {
+            for (int i = 0; i < sequences.size(); i++) {
+                String outputPrefix = getOutputPrefix(i);
+                execService.execute(new OneSequenceCalculator(sequences.get(i).toString(), k.get(),
+                        minCoverage.get(), outputPrefix, this.hasher, reads, logger,
+                        bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
+            }
         }
-        execService.shutdown();
-    
-        logger.info("Finished processing all sequences!");
 
+        execService.shutdown();
+        logger.info("Finished processing all sequences!");
     }
 
     private String getOutputPrefix(int i) {

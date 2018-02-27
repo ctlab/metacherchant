@@ -37,7 +37,7 @@ public class OneSequenceCalculator implements Runnable {
     private boolean fail = false;
 
     public OneSequenceCalculator(String sequence, int k, int minOccurences, String outputPrefix, HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections, int chunkLength, TerminationMode termMode, boolean trimPaths) {
-        this.sequence = sequence.toString();
+        this.sequence = sequence;
         this.k = k;
         this.outputPrefix = outputPrefix;
         this.minOccurences = minOccurences;
@@ -100,7 +100,7 @@ public class OneSequenceCalculator implements Runnable {
         subgraph.put(normalizeDna(kmer), (int) reads.get(getKmerKey(kmer)));
     }
 
-    private boolean isContainedInSubgraph(String kmer) {
+    boolean isContainedInSubgraph(String kmer) {
         return subgraph.containsKey(normalizeDna(kmer));
     }
 
