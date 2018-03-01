@@ -1,12 +1,23 @@
 **MetaCherchant** is a tool for analysing genomic environment of a nucleotide sequence
 within a metagenome. The implementation is based on [MetaFast](https://github.com/ctlab/metafast/wiki) source code.
 
-========
+***
 
 ### Installation
 
+#### From Github / Source
+
 To run MetaCherchant you need to have JRE version 1.6 or higher installed and either of
 these three files: `metacherchant.sh` for Linux/MacOS, `metacherchant.bat` for Windows or `metacherchant.jar` for any OS.
+
+#### From Bioconda
+[![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat-square)](http://bioconda.github.io/recipes/metacherchant/README.html)
+
+Make sure you have added the [Bioconda](https://bioconda.github.io/) channel first and then:
+
+```
+conda install metacherchant
+```
 
 ### Running ***MetaCherchant***
 
