@@ -32,11 +32,12 @@ public class ReadsFilter implements Runnable {
     }
 
     private void reader() throws ExecutionFailedException {
-        File outputCutReads = new File(outputPrefix + "/cutReads" + readsNumber + ".fastq");
+        //File outputCutReads = new File(outputPrefix + "/cutReads" + readsNumber + ".fastq");
+        File outputCutReads = new File(outputPrefix + "/cutReads" + readsNumber + ".fasta");
         outputCutReads.getParentFile().mkdirs();
         NamedSource<Dna> reader = null;
+        PrintWriter out = null;
         try {
-            PrintWriter out;
             out = new PrintWriter(outputCutReads);
             reader = ReadersUtils.readDnaLazy(file);
             ReadersUtils.loadDnaQs(file);
@@ -56,18 +57,21 @@ public class ReadsFilter implements Runnable {
                     }
                     if (numberCoverageKmers >= kmersFiltration) {
                         indexCutRead++;
-                        out.println("@" + indexCutRead + "\n" + read + "\n+");
+                        /*out.println("@" + indexCutRead + "\n" + read + "\n+");
                         for (int j = 0; j < len; j++) {
                             out.print(qualF.getPhredChar(qual.phredAt(j)));
                         }
-                        out.println();
+                        out.println();*/
+                        out.println(">" + indexCutRead + "\n" + read);
                         break;
                     }
                 }
             }
-            out.close();
         } catch (IOException e) {
             throw new ExecutionFailedException("Failed to read from file " + file.getPath());
+        } finally {
+            if (out != null)
+                out.close();
         }
 
     }
