@@ -62,7 +62,7 @@ public class ReadsFilter implements Runnable {
                             out.print(qualF.getPhredChar(qual.phredAt(j)));
                         }
                         out.println();*/
-                        out.println(">" + indexCutRead + "\n" + read);
+                        out.println(">" + readsNumber + "|" + indexCutRead + "\n" + read);
                         break;
                     }
                 }

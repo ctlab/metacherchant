@@ -20,6 +20,7 @@ import static utils.StringUtils.*;
 public class OneSequenceCalculator implements Runnable {
     private final String sequence;
     private final String outputPrefix;
+    private final String workPrefix;
     private final int minOccurences;
     private final int k;
     private final HashFunction hasher;
@@ -29,6 +30,7 @@ public class OneSequenceCalculator implements Runnable {
     private final int chunkLength;
     private final TerminationMode termMode;
     private final boolean trimPaths;
+    private final int pident;
 
     private final Map<String, Integer> subgraph;
 
@@ -36,10 +38,13 @@ public class OneSequenceCalculator implements Runnable {
     private SingleNode[] nodes;
     private boolean fail = false;
 
-    public OneSequenceCalculator(String sequence, int k, int minOccurences, String outputPrefix, HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections, int chunkLength, TerminationMode termMode, boolean trimPaths) {
+    public OneSequenceCalculator(String sequence, int k, int minOccurences, String outputPrefix, String workPrefix,
+                                 HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections,
+                                 int chunkLength, TerminationMode termMode, boolean trimPaths, int pident) {
         this.sequence = sequence;
         this.k = k;
         this.outputPrefix = outputPrefix;
+        this.workPrefix = workPrefix;
         this.minOccurences = minOccurences;
         this.hasher = hasher;
         this.reads = reads;
@@ -48,6 +53,7 @@ public class OneSequenceCalculator implements Runnable {
         this.chunkLength = chunkLength;
         this.termMode = termMode;
         this.trimPaths = trimPaths;
+        this.pident = pident;
 
         this.subgraph = new HashMap<String, Integer>();
     }
@@ -70,16 +76,18 @@ public class OneSequenceCalculator implements Runnable {
             return;
         }
         extendEnvironment();
-//        printGene();
+        //printGene();
         printEnvironment();
         createPicture();
     }
 
     private void printGene() {
         File output = new File(outputPrefix + "/gene.fasta");
+        output.getParentFile().mkdirs();
         PrintWriter out;
         try {
             out = new PrintWriter(output);
+            out.println(">seq");
             out.println(sequence);
             out.close();
         } catch (FileNotFoundException e) {
@@ -104,7 +112,7 @@ public class OneSequenceCalculator implements Runnable {
         return subgraph.containsKey(normalizeDna(kmer));
     }
 
-    void runBfs(int dir) { // -1 - backward, +1 - forward, 0 - both
+    private void runBfs(int dir) { // -1 - backward, +1 - forward, 0 - both
         List<String> queue = new ArrayList<String>();
         Map<String, Integer> distanceToKmer = new HashMap<String, Integer>();
         Set<String> lastKmers = new HashSet<String>();
@@ -253,7 +261,7 @@ public class OneSequenceCalculator implements Runnable {
     private void createPicture() {
         initializeStructures();
         doMerge();
-        outputNodeSequences();
+        outputNodeSequences(outputPrefix);
 
         {
             GFAWriter writer = new GFAWriter(k, outputPrefix, nodes, subgraph);
@@ -265,9 +273,24 @@ public class OneSequenceCalculator implements Runnable {
         }
     }
 
-    void outputNodeSequences() {
+    public void createFilteredPicture(SingleNode[] nodes) {
+        outputNodeSequences(outputPrefix + "/filtered");
+
+        {
+            GFAWriter writer = new GFAWriter(k, outputPrefix + "/filtered", nodes, subgraph);
+            writer.print();
+        }
+        {
+            TSVWriter writer = new TSVWriter(k, outputPrefix + "/filtered", nodes, subgraph);
+            writer.print();
+        }
+    }
+
+    private void outputNodeSequences(String outputPrefix) {
         try {
-            PrintWriter out = new PrintWriter(outputPrefix + "/seqs.fasta");
+            File output = new File(outputPrefix + "/seqs.fasta");
+            output.getParentFile().mkdirs();
+            PrintWriter out = new PrintWriter(output);
             for (int i = 0; i < size; i++) {
                 if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id && nodes[i].sequence.length() >= chunkLength) {
                     out.print("> ");
@@ -280,6 +303,7 @@ public class OneSequenceCalculator implements Runnable {
             }
             out.close();
         } catch (IOException e) {
+            logger.info(e.getMessage());
         }
     }
 
@@ -358,4 +382,90 @@ public class OneSequenceCalculator implements Runnable {
         checkLabels(a, b);
         return a + b.substring(k - 1);
     }
+
+    public SingleNode[] filter() {
+        int cnt = 0;
+        List<SingleNode> starts = new ArrayList<SingleNode>();
+        for (int i = 0; i < size; i++) {
+            if (!nodes[i].deleted && nodes[i].neighbors.size() > 1) {
+                try {
+                    File output = new File(workPrefix + "db/" + cnt + ".fasta");
+                    output.getParentFile().mkdirs();
+                    PrintWriter out = new PrintWriter(output);
+                    int[] lengths = new int[nodes[i].neighbors.size()];
+                    for (int j = 0; j < nodes[i].neighbors.size(); j++) {
+                        out.println(">" + j + " " + nodes[i].id + "_" + nodes[i].neighbors.get(j).id);
+                        String other = nodes[i].neighbors.get(j).rc.sequence;
+                        int len1 = Math.min(other.length(), 100);
+                        int len2 = Math.min(nodes[i].sequence.length(), 100);
+                        lengths[j] = len1 + len2 - (k - 1);
+                        out.println(other.substring(other.length() - len1) + nodes[i].sequence.substring(k, len2));
+                    }
+                    out.close();
+                    new Filter(workPrefix + "db", cnt, logger, 8).run();
+                    Scanner filtered = new Scanner(new File(workPrefix + "db/" + cnt + ".out"));
+                    int[] res = new int[nodes[i].neighbors.size()];
+                    while (filtered.hasNextLine()) {
+                        int query, len;
+                        double pident;
+                        query = filtered.nextInt();
+                        len = filtered.nextInt();
+                        pident = Double.parseDouble(filtered.next());
+                        if (len * pident > lengths[query] * this.pident) {
+                            res[query]++;
+                        }
+                        filtered.nextLine();
+                    }
+                    int sz = nodes[i].neighbors.size();
+                    for (int j = 0; j < sz; j++) {
+                        if (res[j] < minOccurences && !nodes[i].neighbors.get(j).isGeneNode) {
+                            nodes[i].neighbors.get(j).deleted = true;
+                            nodes[i].neighbors.get(j).rc.deleted = true;
+                        }
+                    }
+                    cnt++;
+                } catch (IOException e) {
+                    logger.info(e.getMessage());
+                }
+            }
+            if (!nodes[i].deleted && nodes[i].isGeneNode) {
+                starts.add(nodes[i]);
+            }
+        }
+        List<SingleNode> ans = new ArrayList<SingleNode>();
+
+        for (SingleNode node : starts) {
+            if (!node.visited && !node.deleted) {
+                ans.add(node);
+                ans.add(node.rc);
+                ans.addAll(walk(node));
+                ans.addAll(walk(node.rc));
+            }
+        }
+        return ans.toArray(new SingleNode[ans.size()]);
+    }
+
+    private List<SingleNode> walk(SingleNode node){
+        List<SingleNode> ans = new ArrayList<SingleNode>();
+        node.visited = true;
+        for (SingleNode n : node.neighbors) {
+            if (!n.visited && !n.deleted) {
+                ans.add(n);
+                ans.add(n.rc);
+                ans.addAll(walk(n));
+                ans.addAll(walk(n.rc));
+            }
+        }
+        return ans;
+    }
+
+    /*private void deleteNode(SingleNode node) {
+        node.deleted = true;
+        node.rc.deleted = true;
+        for (SingleNode n : node.rc.neighbors) {
+            if (!n.deleted) {
+                deleteNode(n);
+            }
+        }
+    }*/
 }

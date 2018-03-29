@@ -13,7 +13,7 @@ public class GFAWriter {
 
     private final int k;
     private final String outputPrefix;
-    SingleNode[] nodes;
+    private SingleNode[] nodes;
     private final Map<String, Integer> subgraph;
     private final int size;
 

@@ -182,9 +182,10 @@ public class EnvironmentFinderFiltered extends Tool{
         }
 
         String outputPrefix = outputDir.get().getPath() + "/";
+        String workPrefix = workDir.get().getPath() + "/";
         OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
-                minCoverage.get(), outputPrefix, this.hasher, reads, logger,
-                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
+                minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
+                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get(), 50);
         calc.run();
         ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
         for (int i = 0; i < readsFiles.get().length; i++) {
@@ -202,7 +203,7 @@ public class EnvironmentFinderFiltered extends Tool{
 
         ExecutorService execServiceFilt = Executors.newFixedThreadPool(maxThreads.get());
         for (int i = 0; i < readsFiles.get().length; i++) {
-            execServiceFilt.execute(new Filter(database.get(), databasePath.get(), outputPrefix, i, logger, maxThreads.get()));
+            //execServiceFilt.execute(new Filter(database.get(), databasePath.get(), outputPrefix, i, logger, maxThreads.get()));
         }
         execServiceFilt.shutdown();
         try {
@@ -226,8 +227,8 @@ public class EnvironmentFinderFiltered extends Tool{
         outputPrefix = outputDir.get().getPath() + "/";
 
         calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
-                minCoverage.get(), outputPrefix, this.hasher, reads, logger,
-                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
+                minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
+                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get(), 50);
         calc.run();
         logger.info("Finished processing all sequences!");
     }

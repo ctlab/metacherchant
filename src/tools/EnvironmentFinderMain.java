@@ -1,10 +1,9 @@
 package tools;
 
-import algo.OneSequenceCalculator;
-import algo.ReadsFilter;
-import algo.TerminationMode;
+import algo.*;
 import algo.TerminationMode.TerminationModeType;
-import io.*;
+import io.IOUtils;
+import io.LargeKIOUtils;
 import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.io.ReadersUtils;
 import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
@@ -16,10 +15,12 @@ import utils.FNV1AHash;
 import utils.HashFunction;
 import utils.PolynomialHash;
 
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 
 public class EnvironmentFinderMain extends Tool {
@@ -107,6 +108,11 @@ public class EnvironmentFinderMain extends Tool {
             .withDefaultValue(1)
             .create());
 
+    public final Parameter<Integer> percentIdentity = addParameter(new IntParameterBuilder("pident")
+            .withDescription("coverage percent on branch // [1 .. 100]")
+            .withDefaultValue(50)
+            .create());
+
 
     private BigLong2ShortHashMap reads;
     private List<DnaQ> sequences;
@@ -165,25 +171,36 @@ public class EnvironmentFinderMain extends Tool {
         ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
         if (sequences.size() == 1) {
             String outputPrefix = getOutputPrefix(0);
+            String workPrefix = workDir.get().getPath() + "/";
             OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
-                    minCoverage.get(), outputPrefix, this.hasher, reads, logger,
-                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
+                    minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
+                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get(), percentIdentity.get());
             calc.run();
             for (int i = 0; i < readsFiles.get().length; i++) {
                 execService.execute(new ReadsFilter(readsFiles.get()[i], calc, outputPrefix, i, k.get(),
                         percentFiltration.get(), logger));
             }
+            execService.shutdown();
+            try {
+                while (!execService.awaitTermination(100, TimeUnit.MINUTES)){}
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             logger.info("Filtration done!");
+            new ReadsCoverage(outputPrefix, workPrefix, readsFiles.get().length, logger).run();
+            SingleNode[] nodes = calc.filter();
+            logger.info("Filtration branching by ReadsCoverage done!");
+            calc.createFilteredPicture(nodes);
         } else {
             for (int i = 0; i < sequences.size(); i++) {
                 String outputPrefix = getOutputPrefix(i);
+                String workPrefix = workDir.get().getPath() + "/";
                 execService.execute(new OneSequenceCalculator(sequences.get(i).toString(), k.get(),
-                        minCoverage.get(), outputPrefix, this.hasher, reads, logger,
-                        bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
+                        minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
+                        bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get(), percentIdentity.get()));
             }
+            execService.shutdown();
         }
-
-        execService.shutdown();
         logger.info("Finished processing all sequences!");
     }
 

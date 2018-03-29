@@ -1,40 +1,39 @@
 package algo;
 
 import org.apache.log4j.Logger;
-import ru.ifmo.genetics.dna.Dna;
-import ru.ifmo.genetics.dna.DnaQ;
-import ru.ifmo.genetics.io.ReadersUtils;
-import ru.ifmo.genetics.io.formats.QualityFormat;
-import ru.ifmo.genetics.io.sources.NamedSource;
 import ru.ifmo.genetics.utils.tool.ExecutionFailedException;
 
-import java.io.*;
-import java.util.Scanner;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 /**
- * Created by -- on 07.03.2018.
+ * Created by -- on 14.03.2018.
  */
-public class Filter implements Runnable{
+public class ReadsCoverage implements Runnable{
     private final String outputPrefix;
+    private final String workPrefix;
     private final int readsNumber;
     private final Logger logger;
-    private final Integer maxThreads;
 
-    public Filter(String outputPrefix, int readsNumber, Logger logger, Integer maxThreads) {
+    public ReadsCoverage(String outputPrefix, String workPrefix, int readsNumber, Logger logger) {
         this.outputPrefix = outputPrefix;
+        this.workPrefix = workPrefix;
         this.readsNumber = readsNumber;
         this.logger = logger;
-        this.maxThreads = maxThreads;
     }
 
     private void runFilter() throws ExecutionFailedException {
         try {
-            String[] command = {"blastn", "-db", outputPrefix + "/dbReads",
-                    "-task", "blastn-short",
-                    "-query", outputPrefix + "/" + readsNumber + ".fasta",
-                    "-out", outputPrefix + "/" + readsNumber + ".out",
-                    "-num_threads", maxThreads.toString(),
-                    "-outfmt", "6 qaccver length pident"};
+            StringBuilder input = new StringBuilder("\"");
+            for (int i = 0; i < readsNumber; i++) {
+                input.append(outputPrefix).append("cutReads").append(i).append(".fasta ");
+            }
+            input.append("\"");
+            String[] command = {"makeblastdb", "-in", input.toString(),
+                    "-parse_seqids", "-dbtype", "nucl",
+                    "-out", workPrefix + "db/" + "dbReads"};
             ProcessBuilder procBuilder = new ProcessBuilder(command);
 
             procBuilder.redirectErrorStream(true);
