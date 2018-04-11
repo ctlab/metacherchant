@@ -185,7 +185,7 @@ public class EnvironmentAssemblerFinder extends Tool{
         String workPrefix = workDir.get().getPath() + "/";
         OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
                 minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
-                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get(), 50);
+                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
         calc.run();
         ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
         for (int i = 0; i < readsFiles.get().length; i++) {
@@ -227,7 +227,7 @@ public class EnvironmentAssemblerFinder extends Tool{
 
         calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
                 minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
-                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get(), 50);
+                bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
         calc.run();
         ExecutorService execService2 = Executors.newFixedThreadPool(maxThreads.get());
         for (int i = 0; i < readsFiles.get().length; i++) {

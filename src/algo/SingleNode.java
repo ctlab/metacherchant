@@ -10,7 +10,8 @@ public class SingleNode {
     public boolean deleted;
     public SingleNode rc;
     public List<SingleNode> neighbors;
-    public boolean visited;
+    boolean visited;
+    boolean changed;
 
 
     public SingleNode(String sequence, int id, boolean isGeneNode) {
@@ -20,6 +21,7 @@ public class SingleNode {
 
         this.deleted = false;
         this.visited = false;
+        this.changed = false;
         this.neighbors = new ArrayList<SingleNode>();
     }
 }

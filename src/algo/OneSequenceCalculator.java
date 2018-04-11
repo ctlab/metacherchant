@@ -30,17 +30,17 @@ public class OneSequenceCalculator implements Runnable {
     private final int chunkLength;
     private final TerminationMode termMode;
     private final boolean trimPaths;
-    private final int pident;
 
     private final Map<String, Integer> subgraph;
 
     private int size;
     private SingleNode[] nodes;
     private boolean fail = false;
+    private Set<SingleNode> filtered;
 
     public OneSequenceCalculator(String sequence, int k, int minOccurences, String outputPrefix, String workPrefix,
                                  HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections,
-                                 int chunkLength, TerminationMode termMode, boolean trimPaths, int pident) {
+                                 int chunkLength, TerminationMode termMode, boolean trimPaths) {
         this.sequence = sequence;
         this.k = k;
         this.outputPrefix = outputPrefix;
@@ -53,7 +53,6 @@ public class OneSequenceCalculator implements Runnable {
         this.chunkLength = chunkLength;
         this.termMode = termMode;
         this.trimPaths = trimPaths;
-        this.pident = pident;
 
         this.subgraph = new HashMap<String, Integer>();
     }
@@ -244,7 +243,7 @@ public class OneSequenceCalculator implements Runnable {
         }
     }
 
-    void mergeNodes(SingleNode firstPlus, SingleNode secondMinus) {
+    private void mergeNodes(SingleNode firstPlus, SingleNode secondMinus) {
         // first k-1 symbols of firstPlus coincide with complement of first k-1 symbols of secondMinus
         SingleNode firstMinus = firstPlus.rc, secondPlus = secondMinus.rc;
         String newSeq = mergeLabels(secondPlus.sequence, firstPlus.sequence);
@@ -261,7 +260,7 @@ public class OneSequenceCalculator implements Runnable {
     private void createPicture() {
         initializeStructures();
         doMerge();
-        outputNodeSequences(outputPrefix);
+        outputNodeSequences(outputPrefix, nodes);
 
         {
             GFAWriter writer = new GFAWriter(k, outputPrefix, nodes, subgraph);
@@ -274,7 +273,7 @@ public class OneSequenceCalculator implements Runnable {
     }
 
     public void createFilteredPicture(SingleNode[] nodes) {
-        outputNodeSequences(outputPrefix + "/filtered");
+        outputNodeSequences(outputPrefix + "/filtered", nodes);
 
         {
             GFAWriter writer = new GFAWriter(k, outputPrefix + "/filtered", nodes, subgraph);
@@ -286,15 +285,15 @@ public class OneSequenceCalculator implements Runnable {
         }
     }
 
-    private void outputNodeSequences(String outputPrefix) {
+    private void outputNodeSequences(String outputPrefix, SingleNode[] nodes) {
         try {
             File output = new File(outputPrefix + "/seqs.fasta");
             output.getParentFile().mkdirs();
             PrintWriter out = new PrintWriter(output);
-            for (int i = 0; i < size; i++) {
+            for (int i = 0; i < nodes.length; i++) {
                 if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id && nodes[i].sequence.length() >= chunkLength) {
                     out.print("> ");
-                    out.print("Id" + (i + 1) + " ");
+                    out.print("Id" + (nodes[i].id + 1) + " ");
                     out.print("Length:" + nodes[i].sequence.length() + " ");
                     out.print("Neighbors:" + getNeighborIds(nodes[i]));
                     out.println();
@@ -383,23 +382,27 @@ public class OneSequenceCalculator implements Runnable {
         return a + b.substring(k - 1);
     }
 
+    private String nodeId(SingleNode a) {
+        return (Math.min(a.rc.id, a.id) + 1) + (a.isGeneNode ? "_start" : "");
+    }
+
     public SingleNode[] filter() {
         int cnt = 0;
         List<SingleNode> starts = new ArrayList<SingleNode>();
         for (int i = 0; i < size; i++) {
-            if (!nodes[i].deleted && nodes[i].neighbors.size() > 1) {
+            if (!nodes[i].deleted && (nodes[i].neighbors.size() > 1 || (nodes[i].neighbors.size() == 1 && nodes[i].changed))) {
                 try {
                     File output = new File(workPrefix + "db/" + cnt + ".fasta");
                     output.getParentFile().mkdirs();
                     PrintWriter out = new PrintWriter(output);
                     int[] lengths = new int[nodes[i].neighbors.size()];
                     for (int j = 0; j < nodes[i].neighbors.size(); j++) {
-                        out.println(">" + j + " " + nodes[i].id + "_" + nodes[i].neighbors.get(j).id);
+                        out.println(">" + j + " " + nodeId(nodes[i]) + "->" + nodeId(nodes[i].neighbors.get(j)));
                         String other = nodes[i].neighbors.get(j).rc.sequence;
                         int len1 = Math.min(other.length(), 100);
                         int len2 = Math.min(nodes[i].sequence.length(), 100);
                         lengths[j] = len1 + len2 - (k - 1);
-                        out.println(other.substring(other.length() - len1) + nodes[i].sequence.substring(k, len2));
+                        out.println(other.substring(other.length() - len1) + nodes[i].sequence.substring(k - 1, len2));
                     }
                     out.close();
                     new Filter(workPrefix + "db", cnt, logger, 8).run();
@@ -411,16 +414,20 @@ public class OneSequenceCalculator implements Runnable {
                         query = filtered.nextInt();
                         len = filtered.nextInt();
                         pident = Double.parseDouble(filtered.next());
-                        if (len * pident > lengths[query] * this.pident) {
+                        if (len * pident >= lengths[query] * 100) {
                             res[query]++;
                         }
                         filtered.nextLine();
                     }
                     int sz = nodes[i].neighbors.size();
+                    List<SingleNode> neighbs = new ArrayList<SingleNode>(nodes[i].neighbors);
                     for (int j = 0; j < sz; j++) {
-                        if (res[j] < minOccurences && !nodes[i].neighbors.get(j).isGeneNode) {
-                            nodes[i].neighbors.get(j).deleted = true;
-                            nodes[i].neighbors.get(j).rc.deleted = true;
+                        if (res[j] < minOccurences && !neighbs.get(j).isGeneNode) {
+                            SingleNode tmp = neighbs.get(j);
+                            nodes[i].neighbors.remove(tmp);
+                            tmp.neighbors.remove(nodes[i]);
+                            nodes[i].changed = true;
+                            tmp.changed = true;
                         }
                     }
                     cnt++;
@@ -432,40 +439,28 @@ public class OneSequenceCalculator implements Runnable {
                 starts.add(nodes[i]);
             }
         }
-        List<SingleNode> ans = new ArrayList<SingleNode>();
+        filtered = new HashSet<SingleNode>();
 
         for (SingleNode node : starts) {
             if (!node.visited && !node.deleted) {
-                ans.add(node);
-                ans.add(node.rc);
-                ans.addAll(walk(node));
-                ans.addAll(walk(node.rc));
+                filtered.add(node);
+                filtered.add(node.rc);
+                walk(node);
+                walk(node.rc);
             }
         }
-        return ans.toArray(new SingleNode[ans.size()]);
+        return filtered.toArray(new SingleNode[filtered.size()]);
     }
 
-    private List<SingleNode> walk(SingleNode node){
-        List<SingleNode> ans = new ArrayList<SingleNode>();
+    private void walk(SingleNode node){
         node.visited = true;
         for (SingleNode n : node.neighbors) {
             if (!n.visited && !n.deleted) {
-                ans.add(n);
-                ans.add(n.rc);
-                ans.addAll(walk(n));
-                ans.addAll(walk(n.rc));
+                filtered.add(n);
+                filtered.add(n.rc);
+                walk(n);
+                walk(n.rc);
             }
         }
-        return ans;
     }
-
-    /*private void deleteNode(SingleNode node) {
-        node.deleted = true;
-        node.rc.deleted = true;
-        for (SingleNode n : node.rc.neighbors) {
-            if (!n.deleted) {
-                deleteNode(n);
-            }
-        }
-    }*/
 }

@@ -108,9 +108,9 @@ public class EnvironmentFinderMain extends Tool {
             .withDefaultValue(1)
             .create());
 
-    public final Parameter<Integer> percentIdentity = addParameter(new IntParameterBuilder("pident")
-            .withDescription("coverage percent on branch // [1 .. 100]")
-            .withDefaultValue(50)
+    public final Parameter<Boolean> filter = addParameter(new BoolParameterBuilder("filter")
+            .withDescription("do filtration on branches?")
+            .withDefaultValue(false)
             .create());
 
 
@@ -174,7 +174,7 @@ public class EnvironmentFinderMain extends Tool {
             String workPrefix = workDir.get().getPath() + "/";
             OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
                     minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
-                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get(), percentIdentity.get());
+                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
             calc.run();
             for (int i = 0; i < readsFiles.get().length; i++) {
                 execService.execute(new ReadsFilter(readsFiles.get()[i], calc, outputPrefix, i, k.get(),
@@ -186,18 +186,22 @@ public class EnvironmentFinderMain extends Tool {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            logger.info("Filtration done!");
-            new ReadsCoverage(outputPrefix, workPrefix, readsFiles.get().length, logger).run();
-            SingleNode[] nodes = calc.filter();
-            logger.info("Filtration branching by ReadsCoverage done!");
-            calc.createFilteredPicture(nodes);
+            logger.info("Reads filtration done!");
+            if (filter.get()) {
+                logger.info("Creating database of reads!");
+                new ReadsCoverage(outputPrefix, workPrefix, readsFiles.get().length, logger).run();
+                logger.info("Starting branch filtration!");
+                SingleNode[] nodes = calc.filter();
+                calc.createFilteredPicture(nodes);
+                logger.info("Branch filtration by reads done!");
+            }
         } else {
             for (int i = 0; i < sequences.size(); i++) {
                 String outputPrefix = getOutputPrefix(i);
                 String workPrefix = workDir.get().getPath() + "/";
                 execService.execute(new OneSequenceCalculator(sequences.get(i).toString(), k.get(),
                         minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
-                        bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get(), percentIdentity.get()));
+                        bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
             }
             execService.shutdown();
         }
