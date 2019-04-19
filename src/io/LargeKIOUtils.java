@@ -94,7 +94,7 @@ public class  LargeKIOUtils {
 
             NamedSource<Dna> reader = null;
             try {
-                reader = ReadersUtils.readDnaLazy(file);
+                reader = ReadersUtils.readDnaLazyTrunc(file, null);
             } catch (IOException e) {
                 throw new ExecutionFailedException("Failed to read from file " + file.getPath());
             }
