@@ -8,7 +8,7 @@ It also provides user with tools for comparing two metagenomes. For more details
 
 ### Installation
 
-To run MetaCherchant you need to have JRE version 1.6 or higher installed and either of
+To run MetaCherchant you need to have JRE version 1.8 or higher installed and either of
 these three files: `metacherchant.sh` for Linux/MacOS, `metacherchant.bat` for Windows or `metacherchant.jar` for any OS.
 
 ### Running ***MetaCherchant***

@@ -33,8 +33,8 @@
                includeantruntime="false"
                debug="true"
                debuglevel="lines,vars,source"
-               target="1.7"
-               source="1.7">
+               target="1.8"
+               source="1.8">
         </javac>
 
         <exec executable="java" failonerror="true">
