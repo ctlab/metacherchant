@@ -103,7 +103,7 @@ public class EnvironmentFinderMain extends Tool {
 
     public final Parameter<Integer> percentFiltration = addParameter(new IntParameterBuilder("procfiltration")
             .mandatory()
-            .withShortOpt("f")
+            .withShortOpt("pf")
             .withDescription("filtration percent // [1 .. 100]")
             .withDefaultValue(1)
             .create());
