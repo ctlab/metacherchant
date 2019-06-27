@@ -85,6 +85,20 @@ public class TripleReadsClassifier extends Tool {
             .withDefaultValue(false)
             .create());
 
+    public final Parameter<Integer> found_threshold = addParameter(new IntParameterBuilder("found-threshold")
+            .optional()
+            .withShortOpt("found")
+            .withDescription("Minimum coverage breadth for class `found` [0 - 100 %]")
+            .withDefaultValue(90)
+            .create());
+
+    public final Parameter<Integer> half_threshold = addParameter(new IntParameterBuilder("half-threshold")
+            .optional()
+            .withShortOpt("half")
+            .withDescription("Minimum coverage breadth for class `half-found` [0 - 100 %]")
+            .withDefaultValue(40)
+            .create());
+
 
     private BigLong2ShortHashMap graph;
     private HashFunction hasher;
@@ -158,8 +172,9 @@ public class TripleReadsClassifier extends Tool {
         Map<String, FindResult> isFoundInGraphOne_2 = new ConcurrentHashMap<>();
         ExecutorService executorService = Executors.newFixedThreadPool(availableProcessors.get());
         for (UniPair<LightDnaQ> pair : pairedSource) {
-            executorService.execute(new TripleFinder(pair, k.get(), graph, hasher, isFoundInGraphOne_1, isFoundInGraphOne_2, doCorrection.get(),
-                    interval95.get() ? 1.96 : 1));
+            executorService.execute(new TripleFinder(pair, k.get(), graph, hasher, isFoundInGraphOne_1, isFoundInGraphOne_2,
+                    doCorrection.get(), interval95.get() ? 1.96 : 1,(double)found_threshold.get() / 100,
+                    (double)half_threshold.get() / 100));
         }
         executorService.shutdown();
         try {
@@ -184,7 +199,9 @@ public class TripleReadsClassifier extends Tool {
         for (UniPair<LightDnaQ> pair : pairedSource) {
             executorService.execute(new TripleFinder2(pair, k2.get(), graph, hasher,
                     isFoundInGraphOne_1, isFoundInGraphOne_2, doCorrection.get(),
-                    both_found, both_half_found, both_not_found, s_found, s_half_found, s_not_found, interval95.get() ? 1.96 : 1));
+                    both_found, both_half_found, both_not_found, s_found, s_half_found, s_not_found,
+                    interval95.get() ? 1.96 : 1, (double)found_threshold.get() / 100,
+                    (double)half_threshold.get() / 100));
         }
         executorService.shutdown();
         try {

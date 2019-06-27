@@ -22,14 +22,16 @@ public class TripleFinder2 extends ReadsFinderInGraph implements Runnable {
     private final Queue<LightDnaQ> s_found;
     private final Queue<LightDnaQ> s_half_found;
     private final Queue<LightDnaQ> s_not_found;
+    private final double half_threshold;
 
     public TripleFinder2(UniPair<LightDnaQ> pair, int k, BigLong2ShortHashMap graph, HashFunction hasher,
                          Map<String, TripleReadsClassifier.FindResult> isFoundInGraphOne_1,
                          Map<String, TripleReadsClassifier.FindResult> isFoundInGraphOne_2, boolean doCorrection,
                          Queue<UniPair<LightDnaQ>> both_found, Queue<UniPair<LightDnaQ>> both_half_found,
                          Queue<UniPair<LightDnaQ>> both_not_found, Queue<LightDnaQ> s_found,
-                         Queue<LightDnaQ> s_half_found, Queue<LightDnaQ> s_not_found, double z) {
-        super(pair, k, graph, hasher, doCorrection, z);
+                         Queue<LightDnaQ> s_half_found, Queue<LightDnaQ> s_not_found,
+                         double z, double found_threshold, double half_threshold) {
+        super(pair, k, graph, hasher, doCorrection, z, found_threshold);
         this.isFoundInGraphOne_1 = isFoundInGraphOne_1;
         this.isFoundInGraphOne_2 = isFoundInGraphOne_2;
         this.both_found = both_found;
@@ -38,6 +40,7 @@ public class TripleFinder2 extends ReadsFinderInGraph implements Runnable {
         this.s_found = s_found;
         this.s_half_found = s_half_found;
         this.s_not_found = s_not_found;
+        this.half_threshold = half_threshold;
     }
 
     @Override
@@ -61,7 +64,7 @@ public class TripleFinder2 extends ReadsFinderInGraph implements Runnable {
         if (found_1 && TripleReadsClassifier.FindResult.FOUND.equals(isFoundInGraphOne_1.get(pair.first.toString()))) {
             res_1 =  TripleReadsClassifier.FindResult.FOUND;
         } else if (found_1 || TripleReadsClassifier.FindResult.FOUND.equals(isFoundInGraphOne_1.get(pair.first.toString())) ||
-                (getWidth(pair.first) >= 0.4 && TripleReadsClassifier.FindResult.HALF_FOUND.equals(isFoundInGraphOne_1.get(pair.first.toString())))) {
+                (getWidth(pair.first) >= half_threshold && TripleReadsClassifier.FindResult.HALF_FOUND.equals(isFoundInGraphOne_1.get(pair.first.toString())))) {
             res_1 = TripleReadsClassifier.FindResult.HALF_FOUND;
         } else {
             res_1 = TripleReadsClassifier.FindResult.NOT_FOUND;
@@ -70,7 +73,7 @@ public class TripleFinder2 extends ReadsFinderInGraph implements Runnable {
         if (found_2 && TripleReadsClassifier.FindResult.FOUND.equals(isFoundInGraphOne_2.get(pair.second.toString()))) {
             res_2 =  TripleReadsClassifier.FindResult.FOUND;
         } else if (found_2 || TripleReadsClassifier.FindResult.FOUND.equals(isFoundInGraphOne_2.get(pair.second.toString())) ||
-                (getWidth(pair.second) >= 0.4 && TripleReadsClassifier.FindResult.HALF_FOUND.equals(isFoundInGraphOne_2.get(pair.second.toString())))) {
+                (getWidth(pair.second) >= half_threshold && TripleReadsClassifier.FindResult.HALF_FOUND.equals(isFoundInGraphOne_2.get(pair.second.toString())))) {
             res_2 = TripleReadsClassifier.FindResult.HALF_FOUND;
         } else {
             res_2 = TripleReadsClassifier.FindResult.NOT_FOUND;

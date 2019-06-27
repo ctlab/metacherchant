@@ -12,8 +12,9 @@ Here is a bash script showing a typical usage of simple reads classifier:
 ~~~
 java -jar metacherchant.jar --tool reads-classifier \
     -k 31 \
-    -i <input_1.fasta input_2.fasta>
-    -r <reads_1.fasta reads_2.fasta>
+    -i <input_1.fasta input_2.fasta> \
+    -r <reads_1.fasta reads_2.fasta> \
+    -found 90 \
     -w <workDir> \
     -o <outDir>
 ~~~
@@ -21,6 +22,7 @@ java -jar metacherchant.jar --tool reads-classifier \
 * `-k` --- the size of k-mer used in de Bruijn graph.
 * `-i` --- two files with paired reads for de Bruijn graph. FASTA and FASTQ formats are supported, as well as compressed files *.gz or *.bz2.
 * `-r` --- two files with paired reads to be classified. FASTA and FASTQ formats are supported, as well as compressed files *.gz or *.bz2.
+* `-found` --- Minimum coverage breadth for reads from class *found* [0 - 100 %].
 * `-w` --- directory with intermediate working files
 * `-o` --- directory for final categories of reads
 
@@ -35,7 +37,7 @@ After the end of the analysis, the results can be found in the folder specified 
 ### Triple reads classifier
 
 Triple reads classifier splits reads into three categories. It utilizes two values of `k` and several
-heuristic thresholds for more accurate classification.
+heuristic thresholds (can be user defined) for more accurate classification.
 
 Here is a bash script showing a typical usage of triple reads classifier:
 
@@ -45,6 +47,8 @@ java -jar metacherchant.jar --tool triple-reads-classifier \
     -k2 61 \
     -i <input_1.fasta input_2.fasta>
     -r <reads_1.fasta reads_2.fasta>
+    -found 90 \
+    -half 40 \
     -w <workDir> \
     -o <outDir>
 ~~~
@@ -53,6 +57,8 @@ java -jar metacherchant.jar --tool triple-reads-classifier \
 * `-k2` --- the second size of k-mer used in de Bruijn graph. k2 > k
 * `-i` --- two files with paired reads for de Bruijn graph. FASTA and FASTQ formats are supported, as well as compressed files *.gz or *.bz2.
 * `-r` --- two files with paired reads to be classified. FASTA and FASTQ formats are supported, as well as compressed files *.gz or *.bz2.
+* `-found` --- Minimum coverage breadth for reads from class *found* [0 - 100 %].
+* `-half` --- Minimum coverage breadth for reads from class *half-found* [0 - 100 %].
 * `-w` --- directory with intermediate working files
 * `-o` --- directory for final categories of reads
 

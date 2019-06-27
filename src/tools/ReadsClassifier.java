@@ -80,6 +80,14 @@ public class ReadsClassifier extends Tool {
             .withDefaultValue(false)
             .create());
 
+    public final Parameter<Integer> found_threshold = addParameter(new IntParameterBuilder("found-threshold")
+            .optional()
+            .withShortOpt("found")
+            .withDescription("Minimum coverage breadth for class `found` [0 - 100 %]")
+            .withDefaultValue(90)
+            .create());
+
+
     private BigLong2ShortHashMap graph;
     private HashFunction hasher;
 
@@ -147,7 +155,8 @@ public class ReadsClassifier extends Tool {
         ExecutorService executorService = Executors.newFixedThreadPool(availableProcessors.get());
         for (UniPair<LightDnaQ> pair : pairedSource) {
            executorService.execute(new PairFinder(pair, k.get(), graph, hasher, both_found, first_found,
-                                                    second_found, both_not_found, doCorrection.get(), interval95.get() ? 1.96 : 1));
+                   second_found, both_not_found, doCorrection.get(), interval95.get() ? 1.96 : 1,
+                   (double)found_threshold.get() / 100));
         }
         executorService.shutdown();
         try {

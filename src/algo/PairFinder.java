@@ -18,8 +18,9 @@ public class PairFinder extends ReadsFinderInGraph implements Runnable {
 
     public PairFinder(UniPair<LightDnaQ> pair, int k, BigLong2ShortHashMap graph, HashFunction hasher,
                       Queue<UniPair<LightDnaQ>> both_found, Queue<UniPair<LightDnaQ>> first_found,
-                      Queue<UniPair<LightDnaQ>> second_found, Queue<UniPair<LightDnaQ>> both_not_found, Boolean doCorrection, double z) {
-        super(pair, k, graph, hasher, doCorrection, z);
+                      Queue<UniPair<LightDnaQ>> second_found, Queue<UniPair<LightDnaQ>> both_not_found, Boolean doCorrection,
+                      double z, double found_threshold) {
+        super(pair, k, graph, hasher, doCorrection, z, found_threshold);
         this.both_found = both_found;
         this.first_found = first_found;
         this.second_found = second_found;

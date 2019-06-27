@@ -21,14 +21,16 @@ public abstract class ReadsFinderInGraph {
     private final HashFunction hasher;
     final boolean doCorrection;
     private final double z;
+    private final double found_threshold;
 
-    ReadsFinderInGraph(UniPair<LightDnaQ> pair, int k, BigLong2ShortHashMap graph, HashFunction hasher, boolean doCorrection, double z) {
+    ReadsFinderInGraph(UniPair<LightDnaQ> pair, int k, BigLong2ShortHashMap graph, HashFunction hasher, boolean doCorrection, double z, double found_threshold) {
         this.pair = pair;
         this.k = k;
         this.graph = graph;
         this.hasher = hasher;
         this.doCorrection = doCorrection;
         this.z = z;
+        this.found_threshold = found_threshold;
     }
 
 
@@ -42,7 +44,7 @@ public abstract class ReadsFinderInGraph {
         double width = (double) (cov.stream().mapToInt(i -> i > 0 ? 1 : 0).sum() + (cov.get(cov.size() - 1) > 0 ? 1 : 0) * (k - 1)) / dnaQ.length();
         double theory_width = getTheoryWidth(cov_mean);
 
-        return !(width < 0.9) && delta(cov_mean, width, theory_width, dnaQ.length());
+        return !(width < found_threshold) && delta(cov_mean, width, theory_width, dnaQ.length());
     }
 
     List<Short> getCoverage(LightDnaQ dnaQ) {
