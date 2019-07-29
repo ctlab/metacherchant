@@ -3,6 +3,7 @@ package tools;
 import algo.PairFinder;
 import io.IOUtils;
 import io.LargeKIOUtils;
+import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.dna.LightDnaQ;
 import ru.ifmo.genetics.io.sources.NamedSource;
 import ru.ifmo.genetics.io.sources.PairSource;
@@ -140,24 +141,36 @@ public class ReadsClassifier extends Tool {
             sources.add(source);
         }
 
-        NamedSource<? extends LightDnaQ> source1 = sources.get(0);
-        NamedSource<? extends LightDnaQ> source2 = sources.get(1);
-
-        PairSource<LightDnaQ> pairedSource = PairSource.create(source1, source2);
-
         Queue<UniPair<LightDnaQ>> both_found = new ConcurrentLinkedQueue<>();
         Queue<UniPair<LightDnaQ>> first_found = new ConcurrentLinkedQueue<>();
         Queue<UniPair<LightDnaQ>> second_found = new ConcurrentLinkedQueue<>();
         Queue<UniPair<LightDnaQ>> both_not_found = new ConcurrentLinkedQueue<>();
 
         info(doCorrection.get() ? "Searching for corrected reads in graph..." : "Searching for reads in graph...");
-
         ExecutorService executorService = Executors.newFixedThreadPool(availableProcessors.get());
-        for (UniPair<LightDnaQ> pair : pairedSource) {
-           executorService.execute(new PairFinder(pair, k.get(), graph, hasher, both_found, first_found,
-                   second_found, both_not_found, doCorrection.get(), interval95.get() ? 1.96 : 1,
-                   (double)found_threshold.get() / 100));
+
+        if (sources.size() == 2) {
+            NamedSource<? extends LightDnaQ> source1 = sources.get(0);
+            NamedSource<? extends LightDnaQ> source2 = sources.get(1);
+            PairSource<LightDnaQ> pairedSource = PairSource.create(source1, source2);
+
+            for (UniPair<LightDnaQ> pair : pairedSource) {
+                executorService.execute(new PairFinder(pair, k.get(), graph, hasher, both_found, first_found,
+                        second_found, both_not_found, doCorrection.get(), interval95.get() ? 1.96 : 1,
+                        (double) found_threshold.get() / 100));
+            }
         }
+        else {
+            LightDnaQ emptyDnaQ = new DnaQ(0);
+            NamedSource<? extends LightDnaQ> source1 = sources.get(0);
+            for (LightDnaQ read : source1) {
+                UniPair<LightDnaQ> pair = new UniPair<>(read, emptyDnaQ);
+                executorService.execute(new PairFinder(pair, k.get(), graph, hasher, both_found, first_found,
+                        second_found, both_not_found, doCorrection.get(), interval95.get() ? 1.96 : 1,
+                        (double) found_threshold.get() / 100));
+            }
+        }
+
         executorService.shutdown();
         try {
             executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
