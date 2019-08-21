@@ -26,10 +26,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Function;
 
 import static algo.SingleNode.Color.*;
@@ -89,7 +86,7 @@ public class FMTVisualiser extends Tool {
     private HashFunction hasher;
     private SingleNode[] nodes;
     private String outputPrefix;
-    private HashMap<String, Integer> subgraph;
+    private ConcurrentMap<String, Integer> subgraph;
     private int size;
 
     private long getKmerKey(String s) {
@@ -222,9 +219,17 @@ public class FMTVisualiser extends Tool {
                 throw new ExecutionFailedException("Error while loading donor reads: " + e.toString());
             }
 
-            subgraph = new HashMap<String, Integer>();
+            logger.info("Adding donor k-mers ...");
+            subgraph = new ConcurrentHashMap<String, Integer>();
+            executorService = Executors.newFixedThreadPool(availableProcessors.get());
             for (String kmer : kmers) {
-                addToSubgraph(kmer);
+                executorService.execute(() -> addToSubgraph(kmer));
+            }
+            executorService.shutdown();
+            try {
+                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                throw new ExecutionFailedException("Error while loading donor reads: " + e.toString());
             }
 
             logger.info("Creating donor image ...");
@@ -269,9 +274,17 @@ public class FMTVisualiser extends Tool {
                 throw new ExecutionFailedException("Error while loading before reads: " + e.toString());
             }
 
-            subgraph = new HashMap<String, Integer>();
+            logger.info("Adding before k-mers ...");
+            subgraph = new ConcurrentHashMap<String, Integer>();
+            executorService = Executors.newFixedThreadPool(availableProcessors.get());
             for (String kmer : kmers) {
-                addToSubgraph(kmer);
+                executorService.execute(() -> addToSubgraph(kmer));
+            }
+            executorService.shutdown();
+            try {
+                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                throw new ExecutionFailedException("Error while loading donor reads: " + e.toString());
             }
 
             logger.info("Creating before image ...");
@@ -324,9 +337,17 @@ public class FMTVisualiser extends Tool {
                 throw new ExecutionFailedException("Error while loading after reads: " + e.toString());
             }
 
-            subgraph = new HashMap<String, Integer>();
+            logger.info("Adding after k-mers ...");
+            subgraph = new ConcurrentHashMap<String, Integer>();
+            executorService = Executors.newFixedThreadPool(availableProcessors.get());
             for (String kmer : kmers) {
-                addToSubgraph(kmer);
+                executorService.execute(() -> addToSubgraph(kmer));
+            }
+            executorService.shutdown();
+            try {
+                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                throw new ExecutionFailedException("Error while loading donor reads: " + e.toString());
             }
 
             logger.info("Creating after image ...");
@@ -347,9 +368,13 @@ public class FMTVisualiser extends Tool {
     }
 
     private void createPicture(Function<String, SingleNode.Color> getNodeColor, String name) {
+        logger.info("Initializing structures for creating picture ...");
         initializeStructures(getNodeColor);
+        logger.info("Merging vertices for creating picture ...");
         doMerge();
+        logger.info("Outputing merged vertices ...");
         outputNodeSequences(outputPrefix, nodes, name);
+        logger.info("Drawing image ...");
         {
             GFAWriter writer = new GFAWriter(k.get(), outputPrefix, nodes, subgraph, name);
             writer.print();
