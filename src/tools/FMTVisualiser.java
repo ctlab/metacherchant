@@ -5,11 +5,8 @@ import io.IOUtils;
 import io.LargeKIOUtils;
 import io.writers.GFAWriter;
 import ru.ifmo.genetics.dna.Dna;
-import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.dna.DnaTools;
-import ru.ifmo.genetics.io.sources.NamedSource;
 import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
-import ru.ifmo.genetics.tools.io.LazyDnaQReaderTool;
 import ru.ifmo.genetics.utils.KmerUtils;
 import ru.ifmo.genetics.utils.tool.ExecutionFailedException;
 import ru.ifmo.genetics.utils.tool.Parameter;
@@ -26,7 +23,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
 import static algo.SingleNode.Color.*;
@@ -42,7 +40,7 @@ public class FMTVisualiser extends Tool {
     public final Parameter<Integer> k = addParameter(new IntParameterBuilder("k")
             .mandatory()
             .withShortOpt("k")
-            .withDescription("k-mer size")
+            .withDescription("k-mer size (k <= 31)")
             .create());
 
     public final Parameter<File[]> donorFiles = addParameter(new FileMVParameterBuilder("donor-files")
@@ -83,32 +81,19 @@ public class FMTVisualiser extends Tool {
 
 
     private BigLong2ShortHashMap graph, settle, not_settle, stay, gone, from_donor, from_both, from_before, itself;
-    private HashFunction hasher;
     private SingleNode[] nodes;
     private String outputPrefix;
     private ConcurrentMap<String, Integer> subgraph;
     private int size;
 
     private long getKmerKey(String s) {
-        if (hasher != null) {
-            s = normalizeDna(s);
-            return hasher.hash(s);
-        } else {
-            return KmerUtils.getKmerKey(DnaTools.toLong(new Dna(s)), k.get());
-        }
-    }
-
-    private void addToSubgraph(String kmer) {
-        subgraph.put(normalizeDna(kmer), (int) graph.get(getKmerKey(kmer)));
+        return KmerUtils.getKmerKey(DnaTools.toLong(new Dna(s)), k.get());
     }
 
     private void loadDonorGraphs(File[] found, File[] not_found) throws ExecutionFailedException {
         if (k.get() > 31) {
-            logger.info("Reading hashes of k-mers instead");
-            this.hasher = LargeKIOUtils.hash = determineHashFunction();
-            this.graph = LargeKIOUtils.loadReads(donorFiles.get(), k.get(), 0, availableProcessors.get(), logger);
-            this.settle = LargeKIOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
-            this.not_settle = LargeKIOUtils.loadReads(not_found, k.get(), 0, availableProcessors.get(), logger);
+            error("The size of k-mer must be no more than 31.");
+            System.exit(1);
         } else {
             this.graph = IOUtils.loadReads(donorFiles.get(), k.get(), 0, availableProcessors.get(), logger);
             this.settle = IOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
@@ -119,11 +104,8 @@ public class FMTVisualiser extends Tool {
 
     private void loadBeforeGraphs(File[] found, File[] not_found) throws ExecutionFailedException {
         if (k.get() > 31) {
-            logger.info("Reading hashes of k-mers instead");
-            this.hasher = LargeKIOUtils.hash = determineHashFunction();
-            this.graph = LargeKIOUtils.loadReads(beforeFiles.get(), k.get(), 0, availableProcessors.get(), logger);
-            this.stay = LargeKIOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
-            this.gone = LargeKIOUtils.loadReads(not_found, k.get(), 0, availableProcessors.get(), logger);
+            error("The size of k-mer must be no more than 31.");
+            System.exit(1);
         } else {
             this.graph = IOUtils.loadReads(beforeFiles.get(), k.get(), 0, availableProcessors.get(), logger);
             this.stay = IOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
@@ -134,13 +116,8 @@ public class FMTVisualiser extends Tool {
 
     private void loadAfterGraphs(File[] from_donor, File[] from_before, File[] from_both, File[] itself) throws ExecutionFailedException {
         if (k.get() > 31) {
-            logger.info("Reading hashes of k-mers instead");
-            this.hasher = LargeKIOUtils.hash = determineHashFunction();
-            this.graph = LargeKIOUtils.loadReads(afterFiles.get(), k.get(), 0, availableProcessors.get(), logger);
-            this.from_donor = LargeKIOUtils.loadReads(from_donor, k.get(), 0, availableProcessors.get(), logger);
-            this.from_before = LargeKIOUtils.loadReads(from_before, k.get(), 0, availableProcessors.get(), logger);
-            this.from_both = LargeKIOUtils.loadReads(from_both, k.get(), 0, availableProcessors.get(), logger);
-            this.itself = LargeKIOUtils.loadReads(itself, k.get(), 0, availableProcessors.get(), logger);
+            error("The size of k-mer must be no more than 31.");
+            System.exit(1);
         } else {
             this.graph = IOUtils.loadReads(afterFiles.get(), k.get(), 0, availableProcessors.get(), logger);
             this.from_donor = IOUtils.loadReads(from_donor, k.get(), 0, availableProcessors.get(), logger);
@@ -152,24 +129,9 @@ public class FMTVisualiser extends Tool {
     }
 
 
-    private HashFunction determineHashFunction() {
-        if (k.get() <= 31) {
-            return null;
-        }
-        String name = hashFunction.get().toLowerCase();
-        if (name.equals("fnv1a")) {
-            logger.info("Using FNV1a hash function");
-            return new FNV1AHash();
-        } else {
-            logger.info("Using default polynomial hash function");
-            return new PolynomialHash();
-        }
-    }
-
     @Override
     protected void cleanImpl() {
         graph = null;
-        hasher = null;
         settle = null;
         not_settle = null;
         stay = null;
@@ -180,6 +142,16 @@ public class FMTVisualiser extends Tool {
         itself = null;
         nodes = null;
         subgraph = null;
+    }
+
+    //public final static char[] NUCLEOTIDES = {'A', 'G', 'C', 'T'};
+    private String toStr(long key) {
+        StringBuilder r = new StringBuilder();
+        for (int i = 0; i < k.get(); ++i) {
+            r.insert(0, DnaTools.NUCLEOTIDES[(int) key & 3]);
+            key = key >>> 2;
+        }
+        return normalizeDna(r.toString());
     }
 
     @Override
@@ -195,45 +167,12 @@ public class FMTVisualiser extends Tool {
                     new File(inputPrefix + "not_settle_2.fastq"), new File(inputPrefix + "not_settle_s.fastq")};
             loadDonorGraphs(settle_files, not_settle_files);
 
-            logger.info("Extracting donor k-mers ...");
-            Queue<String> kmers = new ConcurrentLinkedQueue<>();
-            LazyDnaQReaderTool dnaQReader = new LazyDnaQReaderTool();
-            ExecutorService executorService = Executors.newFixedThreadPool(availableProcessors.get());
-            for (File file : donorFiles.get()) {
-                dnaQReader.fileIn.set(file);
-                dnaQReader.simpleRun();
-                NamedSource<? extends DnaQ> source = dnaQReader.dnaQsSourceOut.get();
-                for (DnaQ dnaQ : source) {
-                    executorService.execute(() ->
-                    {
-                        for (int i = 0; i + k.get() <= dnaQ.length(); i++) {
-                            kmers.add(dnaQ.substring(i, i + k.get()).toString());
-                        }
-                    });
-                }
-            }
-            executorService.shutdown();
-            try {
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                throw new ExecutionFailedException("Error while loading donor reads: " + e.toString());
-            }
-
             logger.info("Adding donor k-mers ...");
-            subgraph = new ConcurrentHashMap<String, Integer>();
-            executorService = Executors.newFixedThreadPool(availableProcessors.get());
-            for (String kmer : kmers) {
-                executorService.execute(() -> addToSubgraph(kmer));
-            }
-            executorService.shutdown();
-            try {
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                throw new ExecutionFailedException("Error while loading donor reads: " + e.toString());
-            }
+            subgraph = new ConcurrentHashMap<>();
+            graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int)v.getValue()));
 
             logger.info("Creating donor image ...");
-            createPicture((seq) -> 
+            createPicture((seq) ->
                     settle.contains(getKmerKey(seq)) && ! not_settle.contains(getKmerKey(seq)) ? GREEN :
                     ! settle.contains(getKmerKey(seq)) && not_settle.contains(getKmerKey(seq)) ? BLUE :
                     settle.contains(getKmerKey(seq)) && not_settle.contains(getKmerKey(seq)) ? GREY :
@@ -250,42 +189,9 @@ public class FMTVisualiser extends Tool {
                     new File(inputPrefix + "gone_2.fastq"), new File(inputPrefix + "gone_s.fastq")};
             loadBeforeGraphs(stay_files, gone_files);
 
-            logger.info("Extracting before k-mers ...");
-            Queue<String> kmers = new ConcurrentLinkedQueue<>();
-            LazyDnaQReaderTool dnaQReader = new LazyDnaQReaderTool();
-            ExecutorService executorService = Executors.newFixedThreadPool(availableProcessors.get());
-            for (File file : beforeFiles.get()) {
-                dnaQReader.fileIn.set(file);
-                dnaQReader.simpleRun();
-                NamedSource<? extends DnaQ> source = dnaQReader.dnaQsSourceOut.get();
-                for (DnaQ dnaQ : source) {
-                    executorService.execute(() ->
-                    {
-                        for (int i = 0; i + k.get() <= dnaQ.length(); i++) {
-                            kmers.add(dnaQ.substring(i, i + k.get()).toString());
-                        }
-                    });
-                }
-            }
-            executorService.shutdown();
-            try {
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                throw new ExecutionFailedException("Error while loading before reads: " + e.toString());
-            }
-
             logger.info("Adding before k-mers ...");
-            subgraph = new ConcurrentHashMap<String, Integer>();
-            executorService = Executors.newFixedThreadPool(availableProcessors.get());
-            for (String kmer : kmers) {
-                executorService.execute(() -> addToSubgraph(kmer));
-            }
-            executorService.shutdown();
-            try {
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                throw new ExecutionFailedException("Error while loading donor reads: " + e.toString());
-            }
+            subgraph = new ConcurrentHashMap<>();
+            graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int)v.getValue()));
 
             logger.info("Creating before image ...");
             createPicture((seq) ->
@@ -313,42 +219,9 @@ public class FMTVisualiser extends Tool {
                     new File(inputPrefix + "came_itself_s.fastq")};
             loadAfterGraphs(from_donor_files, from_before_files, from_both_files, itself_files);
 
-            logger.info("Extracting after k-mers ...");
-            Queue<String> kmers = new ConcurrentLinkedQueue<>();
-            LazyDnaQReaderTool dnaQReader = new LazyDnaQReaderTool();
-            ExecutorService executorService = Executors.newFixedThreadPool(availableProcessors.get());
-            for (File file : afterFiles.get()) {
-                dnaQReader.fileIn.set(file);
-                dnaQReader.simpleRun();
-                NamedSource<? extends DnaQ> source = dnaQReader.dnaQsSourceOut.get();
-                for (DnaQ dnaQ : source) {
-                    executorService.execute(() ->
-                    {
-                        for (int i = 0; i + k.get() <= dnaQ.length(); i++) {
-                            kmers.add(dnaQ.substring(i, i + k.get()).toString());
-                        }
-                    });
-                }
-            }
-            executorService.shutdown();
-            try {
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                throw new ExecutionFailedException("Error while loading after reads: " + e.toString());
-            }
-
             logger.info("Adding after k-mers ...");
             subgraph = new ConcurrentHashMap<String, Integer>();
-            executorService = Executors.newFixedThreadPool(availableProcessors.get());
-            for (String kmer : kmers) {
-                executorService.execute(() -> addToSubgraph(kmer));
-            }
-            executorService.shutdown();
-            try {
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                throw new ExecutionFailedException("Error while loading donor reads: " + e.toString());
-            }
+            graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int)v.getValue()));
 
             logger.info("Creating after image ...");
             createPicture((seq) ->
