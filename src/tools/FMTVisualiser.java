@@ -83,7 +83,7 @@ public class FMTVisualiser extends Tool {
     private BigLong2ShortHashMap graph, settle, not_settle, stay, gone, from_donor, from_both, from_before, itself;
     private SingleNode[] nodes;
     private String outputPrefix;
-    private ConcurrentMap<String, Integer> subgraph;
+    private HashMap<String, Integer> subgraph;
     private int size;
 
     private long getKmerKey(String s) {
@@ -168,7 +168,7 @@ public class FMTVisualiser extends Tool {
             loadDonorGraphs(settle_files, not_settle_files);
 
             logger.info("Adding donor k-mers ...");
-            subgraph = new ConcurrentHashMap<>();
+            subgraph = new HashMap<>();
             graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int)v.getValue()));
 
             logger.info("Creating donor image ...");
@@ -190,7 +190,7 @@ public class FMTVisualiser extends Tool {
             loadBeforeGraphs(stay_files, gone_files);
 
             logger.info("Adding before k-mers ...");
-            subgraph = new ConcurrentHashMap<>();
+            subgraph = new HashMap<>();
             graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int)v.getValue()));
 
             logger.info("Creating before image ...");
@@ -220,7 +220,7 @@ public class FMTVisualiser extends Tool {
             loadAfterGraphs(from_donor_files, from_before_files, from_both_files, itself_files);
 
             logger.info("Adding after k-mers ...");
-            subgraph = new ConcurrentHashMap<String, Integer>();
+            subgraph = new HashMap<>();
             graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int)v.getValue()));
 
             logger.info("Creating after image ...");
