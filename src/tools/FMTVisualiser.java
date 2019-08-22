@@ -258,6 +258,7 @@ public class FMTVisualiser extends Tool {
     private void initializeStructures(Function<String, SingleNode.Color> getNodeColor) {
         Map<String, List<SingleNode>> nodeByKmer = new HashMap<String, List<SingleNode>>();
         this.size = subgraph.size() * 2;
+        logger.debug("Number of k-mers: " + this.size);
         nodes = new SingleNode[size];
         {
             int id = 0;
@@ -274,6 +275,7 @@ public class FMTVisualiser extends Tool {
                 id += 2;
             }
         }
+        logger.debug("Nodes are created");
         for (int i = 0; i < size; i++) {
             String key = nodes[i].sequence.substring(0, k.get() - 1);
             if (!nodeByKmer.containsKey(key)) {
@@ -281,12 +283,14 @@ public class FMTVisualiser extends Tool {
             }
             nodeByKmer.get(key).add(nodes[i]);
         }
+        logger.debug("Nodes neighbors initialized");
         for (int i = 0; i < size; i++) {
             String lastK = nodes[i].sequence.substring(1);
             if (nodeByKmer.containsKey(lastK)) {
                 nodes[i].rc.neighbors.addAll(nodeByKmer.get(lastK));
             }
         }
+        logger.debug("Nodes neighbors added");
     }
 
     private void doMerge() {
