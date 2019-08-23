@@ -3,13 +3,11 @@ package tools;
 import algo.SingleNode;
 import io.IOUtils;
 import io.LargeKIOUtils;
+import io.LargeKmerLoader;
 import io.writers.GFAWriter;
 import ru.ifmo.genetics.dna.Dna;
-import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.dna.DnaTools;
-import ru.ifmo.genetics.io.sources.NamedSource;
 import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
-import ru.ifmo.genetics.tools.io.LazyDnaQReaderTool;
 import ru.ifmo.genetics.utils.KmerUtils;
 import ru.ifmo.genetics.utils.tool.ExecutionFailedException;
 import ru.ifmo.genetics.utils.tool.Parameter;
@@ -85,7 +83,7 @@ public class FMTVisualiser extends Tool {
     private HashFunction hasher;
     private SingleNode[] nodes;
     private String outputPrefix;
-    private HashMap<String, Integer> subgraph;
+    private Map<String, Integer> subgraph;
     private int size;
 
     private long getKmerKey(String s) {
@@ -270,21 +268,10 @@ public class FMTVisualiser extends Tool {
     }
 
     private void loadKmers(File[] files) throws ExecutionFailedException {
-        subgraph = new HashMap<>();
         if (k.get() > 31) {
-            LazyDnaQReaderTool dnaQReader = new LazyDnaQReaderTool();
-            for (File file : files) {
-                dnaQReader.fileIn.set(file);
-                dnaQReader.simpleRun();
-                NamedSource<? extends DnaQ> source = dnaQReader.dnaQsSourceOut.get();
-                for (DnaQ dnaQ : source) {
-                    for (int i = 0; i + k.get() <= dnaQ.length(); i++) {
-                        String key = dnaQ.substring(i, i + k.get()).toString();
-                        subgraph.put(normalizeDna(key), (int) graph.get(getKmerKey(key)));
-                    }
-                }
-            }
+            subgraph = LargeKmerLoader.loadReads(files, k.get(), 0, availableProcessors.get(), logger, graph, hasher);
         } else {
+            subgraph = new HashMap<>();
             graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int) v.getValue()));
         }
     }
