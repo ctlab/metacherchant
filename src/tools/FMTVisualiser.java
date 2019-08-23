@@ -5,8 +5,11 @@ import io.IOUtils;
 import io.LargeKIOUtils;
 import io.writers.GFAWriter;
 import ru.ifmo.genetics.dna.Dna;
+import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.dna.DnaTools;
+import ru.ifmo.genetics.io.sources.NamedSource;
 import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
+import ru.ifmo.genetics.tools.io.LazyDnaQReaderTool;
 import ru.ifmo.genetics.utils.KmerUtils;
 import ru.ifmo.genetics.utils.tool.ExecutionFailedException;
 import ru.ifmo.genetics.utils.tool.Parameter;
@@ -23,8 +26,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
 import static algo.SingleNode.Color.*;
@@ -40,7 +41,7 @@ public class FMTVisualiser extends Tool {
     public final Parameter<Integer> k = addParameter(new IntParameterBuilder("k")
             .mandatory()
             .withShortOpt("k")
-            .withDescription("k-mer size (k <= 31)")
+            .withDescription("k-mer size")
             .create());
 
     public final Parameter<File[]> donorFiles = addParameter(new FileMVParameterBuilder("donor-files")
@@ -81,19 +82,28 @@ public class FMTVisualiser extends Tool {
 
 
     private BigLong2ShortHashMap graph, settle, not_settle, stay, gone, from_donor, from_both, from_before, itself;
+    private HashFunction hasher;
     private SingleNode[] nodes;
     private String outputPrefix;
     private HashMap<String, Integer> subgraph;
     private int size;
 
     private long getKmerKey(String s) {
-        return KmerUtils.getKmerKey(DnaTools.toLong(new Dna(s)), k.get());
+        if (hasher != null) {
+            s = normalizeDna(s);
+            return hasher.hash(s);
+        } else {
+            return KmerUtils.getKmerKey(DnaTools.toLong(new Dna(s)), k.get());
+        }
     }
 
     private void loadDonorGraphs(File[] found, File[] not_found) throws ExecutionFailedException {
         if (k.get() > 31) {
-            error("The size of k-mer must be no more than 31.");
-            System.exit(1);
+            logger.info("Reading hashes of k-mers instead");
+            this.hasher = LargeKIOUtils.hash = determineHashFunction();
+            this.graph = LargeKIOUtils.loadReads(donorFiles.get(), k.get(), 0, availableProcessors.get(), logger);
+            this.settle = LargeKIOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
+            this.not_settle = LargeKIOUtils.loadReads(not_found, k.get(), 0, availableProcessors.get(), logger);
         } else {
             this.graph = IOUtils.loadReads(donorFiles.get(), k.get(), 0, availableProcessors.get(), logger);
             this.settle = IOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
@@ -104,8 +114,11 @@ public class FMTVisualiser extends Tool {
 
     private void loadBeforeGraphs(File[] found, File[] not_found) throws ExecutionFailedException {
         if (k.get() > 31) {
-            error("The size of k-mer must be no more than 31.");
-            System.exit(1);
+            logger.info("Reading hashes of k-mers instead");
+            this.hasher = LargeKIOUtils.hash = determineHashFunction();
+            this.graph = LargeKIOUtils.loadReads(beforeFiles.get(), k.get(), 0, availableProcessors.get(), logger);
+            this.stay = LargeKIOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
+            this.gone = LargeKIOUtils.loadReads(not_found, k.get(), 0, availableProcessors.get(), logger);
         } else {
             this.graph = IOUtils.loadReads(beforeFiles.get(), k.get(), 0, availableProcessors.get(), logger);
             this.stay = IOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
@@ -116,8 +129,13 @@ public class FMTVisualiser extends Tool {
 
     private void loadAfterGraphs(File[] from_donor, File[] from_before, File[] from_both, File[] itself) throws ExecutionFailedException {
         if (k.get() > 31) {
-            error("The size of k-mer must be no more than 31.");
-            System.exit(1);
+            logger.info("Reading hashes of k-mers instead");
+            this.hasher = LargeKIOUtils.hash = determineHashFunction();
+            this.graph = LargeKIOUtils.loadReads(afterFiles.get(), k.get(), 0, availableProcessors.get(), logger);
+            this.from_donor = LargeKIOUtils.loadReads(from_donor, k.get(), 0, availableProcessors.get(), logger);
+            this.from_before = LargeKIOUtils.loadReads(from_before, k.get(), 0, availableProcessors.get(), logger);
+            this.from_both = LargeKIOUtils.loadReads(from_both, k.get(), 0, availableProcessors.get(), logger);
+            this.itself = LargeKIOUtils.loadReads(itself, k.get(), 0, availableProcessors.get(), logger);
         } else {
             this.graph = IOUtils.loadReads(afterFiles.get(), k.get(), 0, availableProcessors.get(), logger);
             this.from_donor = IOUtils.loadReads(from_donor, k.get(), 0, availableProcessors.get(), logger);
@@ -129,9 +147,24 @@ public class FMTVisualiser extends Tool {
     }
 
 
+    private HashFunction determineHashFunction() {
+        if (k.get() <= 31) {
+            return null;
+        }
+        String name = hashFunction.get().toLowerCase();
+        if (name.equals("fnv1a")) {
+            logger.info("Using FNV1a hash function");
+            return new FNV1AHash();
+        } else {
+            logger.info("Using default polynomial hash function");
+            return new PolynomialHash();
+        }
+    }
+
     @Override
     protected void cleanImpl() {
         graph = null;
+        hasher = null;
         settle = null;
         not_settle = null;
         stay = null;
@@ -144,7 +177,6 @@ public class FMTVisualiser extends Tool {
         subgraph = null;
     }
 
-    //public final static char[] NUCLEOTIDES = {'A', 'G', 'C', 'T'};
     private String toStr(long key) {
         StringBuilder r = new StringBuilder();
         for (int i = 0; i < k.get(); ++i) {
@@ -167,9 +199,8 @@ public class FMTVisualiser extends Tool {
                     new File(inputPrefix + "not_settle_2.fastq"), new File(inputPrefix + "not_settle_s.fastq")};
             loadDonorGraphs(settle_files, not_settle_files);
 
-            logger.info("Adding donor k-mers ...");
-            subgraph = new HashMap<>();
-            graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int)v.getValue()));
+            logger.info("Loading donor k-mers ...");
+            loadKmers(donorFiles.get());
 
             logger.info("Creating donor image ...");
             createPicture((seq) ->
@@ -189,9 +220,8 @@ public class FMTVisualiser extends Tool {
                     new File(inputPrefix + "gone_2.fastq"), new File(inputPrefix + "gone_s.fastq")};
             loadBeforeGraphs(stay_files, gone_files);
 
-            logger.info("Adding before k-mers ...");
-            subgraph = new HashMap<>();
-            graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int)v.getValue()));
+            logger.info("Loading before k-mers ...");
+            loadKmers(beforeFiles.get());
 
             logger.info("Creating before image ...");
             createPicture((seq) ->
@@ -219,9 +249,8 @@ public class FMTVisualiser extends Tool {
                     new File(inputPrefix + "came_itself_s.fastq")};
             loadAfterGraphs(from_donor_files, from_before_files, from_both_files, itself_files);
 
-            logger.info("Adding after k-mers ...");
-            subgraph = new HashMap<>();
-            graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int)v.getValue()));
+            logger.info("Loading after k-mers ...");
+            loadKmers(afterFiles.get());
 
             logger.info("Creating after image ...");
             createPicture((seq) ->
@@ -240,14 +269,34 @@ public class FMTVisualiser extends Tool {
         }
     }
 
+    private void loadKmers(File[] files) throws ExecutionFailedException {
+        subgraph = new HashMap<>();
+        if (k.get() > 31) {
+            LazyDnaQReaderTool dnaQReader = new LazyDnaQReaderTool();
+            for (File file : files) {
+                dnaQReader.fileIn.set(file);
+                dnaQReader.simpleRun();
+                NamedSource<? extends DnaQ> source = dnaQReader.dnaQsSourceOut.get();
+                for (DnaQ dnaQ : source) {
+                    for (int i = 0; i + k.get() <= dnaQ.length(); i++) {
+                        String key = dnaQ.substring(i, i + k.get()).toString();
+                        subgraph.put(normalizeDna(key), (int) graph.get(getKmerKey(key)));
+                    }
+                }
+            }
+        } else {
+            graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int) v.getValue()));
+        }
+    }
+
     private void createPicture(Function<String, SingleNode.Color> getNodeColor, String name) {
-        logger.info("Initializing structures for creating picture ...");
+        logger.debug("Initializing structures for creating picture ...");
         initializeStructures(getNodeColor);
-        logger.info("Merging vertices for creating picture ...");
+        logger.debug("Merging vertices for creating picture ...");
         doMerge();
-        logger.info("Outputing merged vertices ...");
+        logger.debug("Outputing merged vertices ...");
         outputNodeSequences(outputPrefix, nodes, name);
-        logger.info("Drawing image ...");
+        logger.debug("Drawing image ...");
         {
             GFAWriter writer = new GFAWriter(k.get(), outputPrefix, nodes, subgraph, name);
             writer.print();
@@ -256,7 +305,7 @@ public class FMTVisualiser extends Tool {
     }
 
     private void initializeStructures(Function<String, SingleNode.Color> getNodeColor) {
-        Map<String, List<SingleNode>> nodeByKmer = new HashMap<String, List<SingleNode>>();
+        Map<String, List<SingleNode>> nodeByKmer = new HashMap<>();
         this.size = subgraph.size() * 2;
         logger.debug("Number of k-mers: " + this.size);
         nodes = new SingleNode[size];
@@ -279,7 +328,7 @@ public class FMTVisualiser extends Tool {
         for (int i = 0; i < size; i++) {
             String key = nodes[i].sequence.substring(0, k.get() - 1);
             if (!nodeByKmer.containsKey(key)) {
-                nodeByKmer.put(key, new ArrayList<SingleNode>());
+                nodeByKmer.put(key, new ArrayList<>());
             }
             nodeByKmer.get(key).add(nodes[i]);
         }
@@ -349,7 +398,7 @@ public class FMTVisualiser extends Tool {
     }
 
     private Set<Integer> getNeighborIds(SingleNode SingleNode) {
-        Set<Integer> result = new TreeSet<Integer>();
+        Set<Integer> result = new TreeSet<>();
         for (SingleNode neighbour : SingleNode.neighbors) {
             result.add(Math.min(neighbour.id, neighbour.rc.id) + 1);
         }
