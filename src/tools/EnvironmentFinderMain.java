@@ -1,9 +1,9 @@
 package tools;
 
-import algo.OneSequenceCalculator;
-import algo.TerminationMode;
+import algo.*;
 import algo.TerminationMode.TerminationModeType;
-import io.*;
+import io.IOUtils;
+import io.LargeKIOUtils;
 import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.io.ReadersUtils;
 import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
@@ -15,10 +15,12 @@ import utils.FNV1AHash;
 import utils.HashFunction;
 import utils.PolynomialHash;
 
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 
 public class EnvironmentFinderMain extends Tool {
@@ -31,6 +33,7 @@ public class EnvironmentFinderMain extends Tool {
             .mandatory()
             .withShortOpt("k")
             .withDescription("k-mer size")
+            .withDefaultValue(21)
             .create());
 
     public final Parameter<File[]> readsFiles = addParameter(new FileMVParameterBuilder("reads")
@@ -98,11 +101,24 @@ public class EnvironmentFinderMain extends Tool {
             .create()
     );
 
+    public final Parameter<Integer> percentFiltration = addParameter(new IntParameterBuilder("procfiltration")
+            .mandatory()
+            .withShortOpt("pf")
+            .withDescription("filtration percent // [1 .. 100]")
+            .withDefaultValue(1)
+            .create());
+
+    public final Parameter<Boolean> filter = addParameter(new BoolParameterBuilder("filter")
+            .withDescription("do filtration on branches?")
+            .withDefaultValue(false)
+            .create());
+
+
     private BigLong2ShortHashMap reads;
     private List<DnaQ> sequences;
     private HashFunction hasher;
 
-    private void loadInput() throws ExecutionFailedException {
+    public void loadInput() throws ExecutionFailedException {
         if (k.get() > 31 || forceHashing.get()) {
             logger.info("Reading hashes of k-mers instead");
             this.hasher = LargeKIOUtils.hash = determineHashFunction();
@@ -120,6 +136,7 @@ public class EnvironmentFinderMain extends Tool {
         }
     }
 
+
     private HashFunction determineHashFunction() {
         if (k.get() <= 31 && !forceHashing.get()) {
             return null;
@@ -136,9 +153,6 @@ public class EnvironmentFinderMain extends Tool {
 
     private TerminationMode getTerminationMode() throws ExecutionFailedException {
         TerminationMode termMode = new TerminationMode();
-//        if (maxKmers.get() != null && maxRadius.get() != null) {
-//            throw new ExecutionFailedException("--maxkmers and --maxradius parameters cannot be both set");
-//        }
         if (maxKmers.get() == null && maxRadius.get() == null) {
             throw new ExecutionFailedException("At least one of --maxkmers and --maxradius parameters should be set");
         }
@@ -155,31 +169,42 @@ public class EnvironmentFinderMain extends Tool {
     protected void runImpl() throws ExecutionFailedException {
         loadInput();
         ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
-//        Thread[] calculators = new Thread[sequences.size()];
-//        for (int i = 0; i < calculators.length; i++) {
-//            String outputPrefix = getOutputPrefix(i); //outputDir.get().getPath() + "/" + (i + 1) + "/";
-//            calculators[i] = new Thread(new OneSequenceCalculator(sequences.get(i).toString(), k.get(),
-//                    minCoverage.get(), outputPrefix, this.hasher, reads, logger,
-//                    bothDirections.get(), maxKmers.get(), chunkLength.get()));
-//            calculators[i].start();
-//        }
-//
-//        try {
-//            for (int i = 0; i < calculators.length; i++) {
-//                calculators[i].join();
-//            }
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-
-        for (int i = 0; i < sequences.size(); i++) {
-            String outputPrefix = getOutputPrefix(i);
-            execService.execute(new OneSequenceCalculator(sequences.get(i).toString(), k.get(),
-                    minCoverage.get(), outputPrefix, this.hasher, reads, logger,
-                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
+        if (sequences.size() == 1) {
+            String outputPrefix = getOutputPrefix(0);
+            String workPrefix = workDir.get().getPath() + "/";
+            OneSequenceCalculator calc = new OneSequenceCalculator(sequences.get(0).toString(), k.get(),
+                    minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
+                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get());
+            calc.run();
+            for (int i = 0; i < readsFiles.get().length; i++) {
+                execService.execute(new ReadsFilter(readsFiles.get()[i], calc, outputPrefix, i, k.get(),
+                        percentFiltration.get(), logger));
+            }
+            execService.shutdown();
+            try {
+                while (!execService.awaitTermination(100, TimeUnit.MINUTES)){}
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            logger.info("Reads filtration done!");
+            if (filter.get()) {
+                logger.info("Creating database of reads!");
+                new ReadsCoverage(outputPrefix, workPrefix, readsFiles.get().length, logger).run();
+                logger.info("Starting branch filtration!");
+                SingleNode[] nodes = calc.filter();
+                calc.createFilteredPicture(nodes);
+                logger.info("Branch filtration by reads done!");
+            }
+        } else {
+            for (int i = 0; i < sequences.size(); i++) {
+                String outputPrefix = getOutputPrefix(i);
+                String workPrefix = workDir.get().getPath() + "/";
+                execService.execute(new OneSequenceCalculator(sequences.get(i).toString(), k.get(),
+                        minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
+                        bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
+            }
+            execService.shutdown();
         }
-        execService.shutdown();
-
         logger.info("Finished processing all sequences!");
     }
 

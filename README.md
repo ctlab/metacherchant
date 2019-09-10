@@ -1,11 +1,14 @@
 **MetaCherchant** is a tool for analysing genomic environment of a nucleotide sequence
 within a metagenome. The implementation is based on [MetaFast](https://github.com/ctlab/metafast/wiki) source code.
 
+It also provides user with tools for comparing two metagenomes. For more details, please consult the 
+[reads classifier description](https://github.com/ivartb/metacherchant/blob/master/ReadsClassifier.md).
+
 ========
 
 ### Installation
 
-To run MetaCherchant you need to have JRE version 1.6 or higher installed and either of
+To run MetaCherchant you need to have JRE version 1.8 or higher installed and either of
 these three files: `metacherchant.sh` for Linux/MacOS, `metacherchant.bat` for Windows or `metacherchant.jar` for any OS.
 
 ### Running ***MetaCherchant***

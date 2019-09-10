@@ -13,10 +13,20 @@ public class GFAWriter {
 
     private final int k;
     private final String outputPrefix;
-    SingleNode[] nodes;
+    private SingleNode[] nodes;
     private final Map<String, Integer> subgraph;
     private final int size;
+    private final String fileName;
 
+
+    public GFAWriter(int k, String outputPrefix, SingleNode[] nodes, Map<String, Integer> subgraph, String fileName) {
+        this.k = k;
+        this.outputPrefix = outputPrefix;
+        this.nodes = nodes;
+        this.subgraph = subgraph;
+        this.size = nodes.length;
+        this.fileName = fileName;
+    }
 
     public GFAWriter(int k, String outputPrefix, SingleNode[] nodes, Map<String, Integer> subgraph) {
         this.k = k;
@@ -24,10 +34,11 @@ public class GFAWriter {
         this.nodes = nodes;
         this.subgraph = subgraph;
         this.size = nodes.length;
+        this.fileName = "graph";
     }
 
     public void print() {
-        File output = new File(outputPrefix + "/graph.gfa");
+        File output = new File(outputPrefix + "/" + fileName + ".gfa");
         output.getParentFile().mkdirs();
         printGraph(output);
     }
@@ -79,6 +90,7 @@ public class GFAWriter {
             String kmer = node.sequence.substring(i, i + k);
             coverage += subgraph.get(StringUtils.normalizeDna(kmer));
         }
-        out.println("\tLN:i:" + (node.sequence.length()) + "\tKC:i:" + coverage);
+        out.println("\tLN:i:" + (node.sequence.length()) + "\tKC:i:" + coverage +
+                (node.color == null ? "" : ("\tCL:z:" + node.color)));
     }
 }

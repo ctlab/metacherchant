@@ -20,6 +20,7 @@ import static utils.StringUtils.*;
 public class OneSequenceCalculator implements Runnable {
     private final String sequence;
     private final String outputPrefix;
+    private final String workPrefix;
     private final int minOccurences;
     private final int k;
     private final HashFunction hasher;
@@ -35,11 +36,15 @@ public class OneSequenceCalculator implements Runnable {
     private int size;
     private SingleNode[] nodes;
     private boolean fail = false;
+    private Set<SingleNode> filtered;
 
-    public OneSequenceCalculator(String sequence, int k, int minOccurences, String outputPrefix, HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections, int chunkLength, TerminationMode termMode, boolean trimPaths) {
-        this.sequence = sequence.toString();
+    public OneSequenceCalculator(String sequence, int k, int minOccurences, String outputPrefix, String workPrefix,
+                                 HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections,
+                                 int chunkLength, TerminationMode termMode, boolean trimPaths) {
+        this.sequence = sequence;
         this.k = k;
         this.outputPrefix = outputPrefix;
+        this.workPrefix = workPrefix;
         this.minOccurences = minOccurences;
         this.hasher = hasher;
         this.reads = reads;
@@ -70,16 +75,18 @@ public class OneSequenceCalculator implements Runnable {
             return;
         }
         extendEnvironment();
-//        printGene();
+        //printGene();
         printEnvironment();
         createPicture();
     }
 
     private void printGene() {
         File output = new File(outputPrefix + "/gene.fasta");
+        output.getParentFile().mkdirs();
         PrintWriter out;
         try {
             out = new PrintWriter(output);
+            out.println(">seq");
             out.println(sequence);
             out.close();
         } catch (FileNotFoundException e) {
@@ -100,11 +107,11 @@ public class OneSequenceCalculator implements Runnable {
         subgraph.put(normalizeDna(kmer), (int) reads.get(getKmerKey(kmer)));
     }
 
-    private boolean isContainedInSubgraph(String kmer) {
+    boolean isContainedInSubgraph(String kmer) {
         return subgraph.containsKey(normalizeDna(kmer));
     }
 
-    void runBfs(int dir) { // -1 - backward, +1 - forward, 0 - both
+    private void runBfs(int dir) { // -1 - backward, +1 - forward, 0 - both
         List<String> queue = new ArrayList<String>();
         Map<String, Integer> distanceToKmer = new HashMap<String, Integer>();
         Set<String> lastKmers = new HashSet<String>();
@@ -236,7 +243,7 @@ public class OneSequenceCalculator implements Runnable {
         }
     }
 
-    void mergeNodes(SingleNode firstPlus, SingleNode secondMinus) {
+    private void mergeNodes(SingleNode firstPlus, SingleNode secondMinus) {
         // first k-1 symbols of firstPlus coincide with complement of first k-1 symbols of secondMinus
         SingleNode firstMinus = firstPlus.rc, secondPlus = secondMinus.rc;
         String newSeq = mergeLabels(secondPlus.sequence, firstPlus.sequence);
@@ -253,7 +260,7 @@ public class OneSequenceCalculator implements Runnable {
     private void createPicture() {
         initializeStructures();
         doMerge();
-        outputNodeSequences();
+        outputNodeSequences(outputPrefix, nodes);
 
         {
             GFAWriter writer = new GFAWriter(k, outputPrefix, nodes, subgraph);
@@ -265,13 +272,28 @@ public class OneSequenceCalculator implements Runnable {
         }
     }
 
-    void outputNodeSequences() {
+    public void createFilteredPicture(SingleNode[] nodes) {
+        outputNodeSequences(outputPrefix + "/filtered", nodes);
+
+        {
+            GFAWriter writer = new GFAWriter(k, outputPrefix + "/filtered", nodes, subgraph);
+            writer.print();
+        }
+        {
+            TSVWriter writer = new TSVWriter(k, outputPrefix + "/filtered", nodes, subgraph);
+            writer.print();
+        }
+    }
+
+    private void outputNodeSequences(String outputPrefix, SingleNode[] nodes) {
         try {
-            PrintWriter out = new PrintWriter(outputPrefix + "/seqs.fasta");
-            for (int i = 0; i < size; i++) {
+            File output = new File(outputPrefix + "/seqs.fasta");
+            output.getParentFile().mkdirs();
+            PrintWriter out = new PrintWriter(output);
+            for (int i = 0; i < nodes.length; i++) {
                 if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id && nodes[i].sequence.length() >= chunkLength) {
                     out.print("> ");
-                    out.print("Id" + (i + 1) + " ");
+                    out.print("Id" + (nodes[i].id + 1) + " ");
                     out.print("Length:" + nodes[i].sequence.length() + " ");
                     out.print("Neighbors:" + getNeighborIds(nodes[i]));
                     out.println();
@@ -280,6 +302,7 @@ public class OneSequenceCalculator implements Runnable {
             }
             out.close();
         } catch (IOException e) {
+            logger.info(e.getMessage());
         }
     }
 
@@ -357,5 +380,87 @@ public class OneSequenceCalculator implements Runnable {
     private String mergeLabels(String a, String b) {
         checkLabels(a, b);
         return a + b.substring(k - 1);
+    }
+
+    private String nodeId(SingleNode a) {
+        return (Math.min(a.rc.id, a.id) + 1) + (a.isGeneNode ? "_start" : "");
+    }
+
+    public SingleNode[] filter() {
+        int cnt = 0;
+        List<SingleNode> starts = new ArrayList<SingleNode>();
+        for (int i = 0; i < size; i++) {
+            if (!nodes[i].deleted && (nodes[i].neighbors.size() > 1 || (nodes[i].neighbors.size() == 1 && nodes[i].changed))) {
+                try {
+                    File output = new File(workPrefix + "db/" + cnt + ".fasta");
+                    output.getParentFile().mkdirs();
+                    PrintWriter out = new PrintWriter(output);
+                    int[] lengths = new int[nodes[i].neighbors.size()];
+                    for (int j = 0; j < nodes[i].neighbors.size(); j++) {
+                        out.println(">" + j + " " + nodeId(nodes[i]) + "->" + nodeId(nodes[i].neighbors.get(j)));
+                        String other = nodes[i].neighbors.get(j).rc.sequence;
+                        int len1 = Math.min(other.length(), 100);
+                        int len2 = Math.min(nodes[i].sequence.length(), 100);
+                        lengths[j] = len1 + len2 - (k - 1);
+                        out.println(other.substring(other.length() - len1) + nodes[i].sequence.substring(k - 1, len2));
+                    }
+                    out.close();
+                    new Filter(workPrefix + "db", cnt, logger, 8).run();
+                    Scanner filtered = new Scanner(new File(workPrefix + "db/" + cnt + ".out"));
+                    int[] res = new int[nodes[i].neighbors.size()];
+                    while (filtered.hasNextLine()) {
+                        int query, len;
+                        double pident;
+                        query = filtered.nextInt();
+                        len = filtered.nextInt();
+                        pident = Double.parseDouble(filtered.next());
+                        if (len * pident >= lengths[query] * 100) {
+                            res[query]++;
+                        }
+                        filtered.nextLine();
+                    }
+                    int sz = nodes[i].neighbors.size();
+                    List<SingleNode> neighbs = new ArrayList<SingleNode>(nodes[i].neighbors);
+                    for (int j = 0; j < sz; j++) {
+                        if (res[j] < minOccurences && !neighbs.get(j).isGeneNode) {
+                            SingleNode tmp = neighbs.get(j);
+                            nodes[i].neighbors.remove(tmp);
+                            tmp.neighbors.remove(nodes[i]);
+                            nodes[i].changed = true;
+                            tmp.changed = true;
+                        }
+                    }
+                    cnt++;
+                } catch (IOException e) {
+                    logger.info(e.getMessage());
+                }
+            }
+            if (!nodes[i].deleted && nodes[i].isGeneNode) {
+                starts.add(nodes[i]);
+            }
+        }
+        filtered = new HashSet<SingleNode>();
+
+        for (SingleNode node : starts) {
+            if (!node.visited && !node.deleted) {
+                filtered.add(node);
+                filtered.add(node.rc);
+                walk(node);
+                walk(node.rc);
+            }
+        }
+        return filtered.toArray(new SingleNode[filtered.size()]);
+    }
+
+    private void walk(SingleNode node){
+        node.visited = true;
+        for (SingleNode n : node.neighbors) {
+            if (!n.visited && !n.deleted) {
+                filtered.add(n);
+                filtered.add(n.rc);
+                walk(n);
+                walk(n.rc);
+            }
+        }
     }
 }
