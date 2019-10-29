@@ -78,6 +78,12 @@ public class FMTVisualiser extends Tool {
             .withDescription("directory containing output of reads_classifier.sh FMT classification script")
             .create());
 
+    public final Parameter<String> extension = addParameter(new StringParameterBuilder("ext")
+            .mandatory()
+            .withShortOpt("ext")
+            .withDescription("extension of output files of reads_classifier.sh FMT classification script")
+            .create());
+
 
     private BigLong2ShortHashMap graph, settle, not_settle, stay, gone, from_donor, from_both, from_before, itself;
     private HashFunction hasher;
@@ -191,10 +197,12 @@ public class FMTVisualiser extends Tool {
         // Drawing donor graph
         {
 
-            File[] settle_files = {new File(inputPrefix + "settle_1.fastq"),
-                    new File(inputPrefix + "settle_2.fastq"), new File(inputPrefix + "settle_s.fastq")};
-            File[] not_settle_files = {new File(inputPrefix + "not_settle_1.fastq"),
-                    new File(inputPrefix + "not_settle_2.fastq"), new File(inputPrefix + "not_settle_s.fastq")};
+            File[] settle_files = {new File(inputPrefix + "settle_1." + extension.get()),
+                    new File(inputPrefix + "settle_2." + extension.get()),
+                    new File(inputPrefix + "settle_s." + extension.get())};
+            File[] not_settle_files = {new File(inputPrefix + "not_settle_1." + extension.get()),
+                    new File(inputPrefix + "not_settle_2." + extension.get()),
+                    new File(inputPrefix + "not_settle_s." + extension.get())};
             loadDonorGraphs(settle_files, not_settle_files);
 
             logger.info("Loading donor k-mers ...");
@@ -212,10 +220,12 @@ public class FMTVisualiser extends Tool {
         // Drawing before graph
         {
 
-            File[] stay_files = {new File(inputPrefix + "stay_1.fastq"),
-                    new File(inputPrefix + "stay_2.fastq"), new File(inputPrefix + "stay_s.fastq")};
-            File[] gone_files = {new File(inputPrefix + "gone_1.fastq"),
-                    new File(inputPrefix + "gone_2.fastq"), new File(inputPrefix + "gone_s.fastq")};
+            File[] stay_files = {new File(inputPrefix + "stay_1." + extension.get()),
+                    new File(inputPrefix + "stay_2." + extension.get()),
+                    new File(inputPrefix + "stay_s." + extension.get())};
+            File[] gone_files = {new File(inputPrefix + "gone_1." + extension.get()),
+                    new File(inputPrefix + "gone_2." + extension.get()),
+                    new File(inputPrefix + "gone_s." + extension.get())};
             loadBeforeGraphs(stay_files, gone_files);
 
             logger.info("Loading before k-mers ...");
@@ -233,18 +243,18 @@ public class FMTVisualiser extends Tool {
         // Drawing after graph
         {
 
-            File[] from_donor_files = {new File(inputPrefix + "came_from_donor_1.fastq"),
-                    new File(inputPrefix + "came_from_donor_2.fastq"),
-                    new File(inputPrefix + "came_from_donor_s.fastq")};
-            File[] from_before_files = {new File(inputPrefix + "came_from_before_1.fastq"),
-                    new File(inputPrefix + "came_from_before_2.fastq"),
-                    new File(inputPrefix + "came_from_before_s.fastq")};
-            File[] from_both_files = {new File(inputPrefix + "came_from_both_1.fastq"),
-                    new File(inputPrefix + "came_from_both_2.fastq"),
-                    new File(inputPrefix + "came_from_both_s.fastq")};
-            File[] itself_files = {new File(inputPrefix + "came_itself_1.fastq"),
-                    new File(inputPrefix + "came_itself_2.fastq"),
-                    new File(inputPrefix + "came_itself_s.fastq")};
+            File[] from_donor_files = {new File(inputPrefix + "came_from_donor_1." + extension.get()),
+                    new File(inputPrefix + "came_from_donor_2." + extension.get()),
+                    new File(inputPrefix + "came_from_donor_s." + extension.get())};
+            File[] from_before_files = {new File(inputPrefix + "came_from_before_1." + extension.get()),
+                    new File(inputPrefix + "came_from_before_2." + extension.get()),
+                    new File(inputPrefix + "came_from_before_s." + extension.get())};
+            File[] from_both_files = {new File(inputPrefix + "came_from_both_1." + extension.get()),
+                    new File(inputPrefix + "came_from_both_2." + extension.get()),
+                    new File(inputPrefix + "came_from_both_s." + extension.get())};
+            File[] itself_files = {new File(inputPrefix + "came_itself_1." + extension.get()),
+                    new File(inputPrefix + "came_itself_2." + extension.get()),
+                    new File(inputPrefix + "came_itself_s." + extension.get())};
             loadAfterGraphs(from_donor_files, from_before_files, from_both_files, itself_files);
 
             logger.info("Loading after k-mers ...");
