@@ -106,10 +106,15 @@ public class FMTVisualiser extends Tool {
             logger.info("Reading hashes of k-mers instead");
             this.hasher = LargeKIOUtils.hash = determineHashFunction();
             this.graph = LargeKIOUtils.loadReads(donorFiles.get(), k.get(), 0, availableProcessors.get(), logger);
+            this.subgraph = LargeKmerLoader.loadReads(donorFiles.get(), k.get(), 0, availableProcessors.get(), logger, graph, hasher);
+            this.graph = null;
             this.settle = LargeKIOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
             this.not_settle = LargeKIOUtils.loadReads(not_found, k.get(), 0, availableProcessors.get(), logger);
         } else {
             this.graph = IOUtils.loadReads(donorFiles.get(), k.get(), 0, availableProcessors.get(), logger);
+            this.subgraph = new HashMap<>();
+            this.graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int) v.getValue()));
+            this.graph = null;
             this.settle = IOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
             this.not_settle = IOUtils.loadReads(not_found, k.get(), 0, availableProcessors.get(), logger);
         }
@@ -121,10 +126,15 @@ public class FMTVisualiser extends Tool {
             logger.info("Reading hashes of k-mers instead");
             this.hasher = LargeKIOUtils.hash = determineHashFunction();
             this.graph = LargeKIOUtils.loadReads(beforeFiles.get(), k.get(), 0, availableProcessors.get(), logger);
+            this.subgraph = LargeKmerLoader.loadReads(beforeFiles.get(), k.get(), 0, availableProcessors.get(), logger, graph, hasher);
+            this.graph = null;
             this.stay = LargeKIOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
             this.gone = LargeKIOUtils.loadReads(not_found, k.get(), 0, availableProcessors.get(), logger);
         } else {
             this.graph = IOUtils.loadReads(beforeFiles.get(), k.get(), 0, availableProcessors.get(), logger);
+            this.subgraph = new HashMap<>();
+            this.graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int) v.getValue()));
+            this.graph = null;
             this.stay = IOUtils.loadReads(found, k.get(), 0, availableProcessors.get(), logger);
             this.gone = IOUtils.loadReads(not_found, k.get(), 0, availableProcessors.get(), logger);
         }
@@ -136,12 +146,17 @@ public class FMTVisualiser extends Tool {
             logger.info("Reading hashes of k-mers instead");
             this.hasher = LargeKIOUtils.hash = determineHashFunction();
             this.graph = LargeKIOUtils.loadReads(afterFiles.get(), k.get(), 0, availableProcessors.get(), logger);
+            this.subgraph = LargeKmerLoader.loadReads(afterFiles.get(), k.get(), 0, availableProcessors.get(), logger, graph, hasher);
+            this.graph = null;
             this.from_donor = LargeKIOUtils.loadReads(from_donor, k.get(), 0, availableProcessors.get(), logger);
             this.from_before = LargeKIOUtils.loadReads(from_before, k.get(), 0, availableProcessors.get(), logger);
             this.from_both = LargeKIOUtils.loadReads(from_both, k.get(), 0, availableProcessors.get(), logger);
             this.itself = LargeKIOUtils.loadReads(itself, k.get(), 0, availableProcessors.get(), logger);
         } else {
             this.graph = IOUtils.loadReads(afterFiles.get(), k.get(), 0, availableProcessors.get(), logger);
+            this.subgraph = new HashMap<>();
+            this.graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int) v.getValue()));
+            this.graph = null;
             this.from_donor = IOUtils.loadReads(from_donor, k.get(), 0, availableProcessors.get(), logger);
             this.from_before = IOUtils.loadReads(from_before, k.get(), 0, availableProcessors.get(), logger);
             this.from_both = IOUtils.loadReads(from_both, k.get(), 0, availableProcessors.get(), logger);
@@ -197,6 +212,7 @@ public class FMTVisualiser extends Tool {
         // Drawing donor graph
         {
 
+            logger.info("Loading donor reads ...");
             File[] settle_files = {new File(inputPrefix + "settle_1." + extension.get()),
                     new File(inputPrefix + "settle_2." + extension.get()),
                     new File(inputPrefix + "settle_s." + extension.get())};
@@ -204,9 +220,6 @@ public class FMTVisualiser extends Tool {
                     new File(inputPrefix + "not_settle_2." + extension.get()),
                     new File(inputPrefix + "not_settle_s." + extension.get())};
             loadDonorGraphs(settle_files, not_settle_files);
-
-            logger.info("Loading donor k-mers ...");
-            loadKmers(donorFiles.get());
 
             logger.info("Creating donor image ...");
             createPicture((seq) ->
@@ -219,7 +232,7 @@ public class FMTVisualiser extends Tool {
 
         // Drawing before graph
         {
-
+            logger.info("Loading before reads ...");
             File[] stay_files = {new File(inputPrefix + "stay_1." + extension.get()),
                     new File(inputPrefix + "stay_2." + extension.get()),
                     new File(inputPrefix + "stay_s." + extension.get())};
@@ -227,9 +240,6 @@ public class FMTVisualiser extends Tool {
                     new File(inputPrefix + "gone_2." + extension.get()),
                     new File(inputPrefix + "gone_s." + extension.get())};
             loadBeforeGraphs(stay_files, gone_files);
-
-            logger.info("Loading before k-mers ...");
-            loadKmers(beforeFiles.get());
 
             logger.info("Creating before image ...");
             createPicture((seq) ->
@@ -242,7 +252,7 @@ public class FMTVisualiser extends Tool {
 
         // Drawing after graph
         {
-
+            logger.info("Loading after reads ...");
             File[] from_donor_files = {new File(inputPrefix + "came_from_donor_1." + extension.get()),
                     new File(inputPrefix + "came_from_donor_2." + extension.get()),
                     new File(inputPrefix + "came_from_donor_s." + extension.get())};
@@ -256,9 +266,6 @@ public class FMTVisualiser extends Tool {
                     new File(inputPrefix + "came_itself_2." + extension.get()),
                     new File(inputPrefix + "came_itself_s." + extension.get())};
             loadAfterGraphs(from_donor_files, from_before_files, from_both_files, itself_files);
-
-            logger.info("Loading after k-mers ...");
-            loadKmers(afterFiles.get());
 
             logger.info("Creating after image ...");
             createPicture((seq) ->
@@ -274,15 +281,6 @@ public class FMTVisualiser extends Tool {
                         && ! from_both.contains(getKmerKey(seq)) && ! itself.contains(getKmerKey(seq)) ? BLACK :
                     GREY, "after");
             cleanImpl();
-        }
-    }
-
-    private void loadKmers(File[] files) throws ExecutionFailedException {
-        if (k.get() > 31) {
-            subgraph = LargeKmerLoader.loadReads(files, k.get(), 0, availableProcessors.get(), logger, graph, hasher);
-        } else {
-            subgraph = new HashMap<>();
-            graph.entryIterator().forEachRemaining((v) -> subgraph.put(toStr(v.getKey()), (int) v.getValue()));
         }
     }
 
