@@ -1,0 +1,6 @@
+.idea/*
+out/artifacts/*
+out/production/*
+META-INF/*
+workDir/*
+*.iml
