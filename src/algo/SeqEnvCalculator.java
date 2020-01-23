@@ -16,12 +16,13 @@ import java.util.function.Function;
 
 import static utils.StringUtils.allNeighbors;
 import static utils.StringUtils.normalizeDna;
+import static utils.StringUtils.shortenLabel;
 
 /**
- * Created by -- on 18.12.2019.
+ * Created by -- on 22.01.2020.
  */
-public class KmerEnvCalculator implements Runnable {
-    private final String kmer;
+public class SeqEnvCalculator implements Runnable {
+    private final String sequence;
     private final int k;
     private final String outputPrefix;
     private final HashFunction hasher;
@@ -29,15 +30,18 @@ public class KmerEnvCalculator implements Runnable {
     private final Logger logger;
     private final Function<String, SingleNode.Color> getNodeColor;
     private final String name;
+    private final TerminationMode termMode;
+
 
     private final Map<String, Integer> subgraph;
 
     private int size;
     private SingleNode[] nodes;
+    private boolean fail = false;
 
-    public KmerEnvCalculator(String kmer, int k, String outputPrefix, HashFunction hasher, BigLong2ShortHashMap graph,
-                             Logger logger, Function<String, SingleNode.Color> getNodeColor, String name) {
-        this.kmer = kmer;
+    public SeqEnvCalculator(String sequence, int k, String outputPrefix, HashFunction hasher, BigLong2ShortHashMap graph,
+                            Logger logger, Function<String, SingleNode.Color> getNodeColor, String name, TerminationMode termMode) {
+        this.sequence = sequence;
         this.k = k;
         this.outputPrefix = outputPrefix;
         this.hasher = hasher;
@@ -45,33 +49,56 @@ public class KmerEnvCalculator implements Runnable {
         this.logger = logger;
         this.getNodeColor = getNodeColor;
         this.name = name;
+        this.termMode = termMode;
 
         this.subgraph = new HashMap<>();
     }
 
     @Override
     public void run() {
-        logger.debug("Finding environment for k-mer " + kmer);
+        logger.info("Finding environment for sequence " + shortenLabel(sequence, k));
         runBfs();
+        if (fail) {
+            logger.info("Could not find any k-mers of the target gene in the input, halting.");
+            return;
+        }
+        extendEnvironment();
 
         createPicture();
     }
 
     private void runBfs() {
-        List<String> queue = new ArrayList<>();
-        queue.add(kmer);
+        List<String> queue = new ArrayList<String>();
+        Map<String, Integer> distanceToKmer = new HashMap<String, Integer>();
 
+        for (int i = 0; i + k <= sequence.length(); i++) {
+            String kmer = sequence.substring(i, i + k);
+            if (graph.getWithZero(getKmerKey(kmer)) > 0) {
+                queue.add(kmer);
+                distanceToKmer.put(kmer, 0);
+            }
+        }
+        if (queue.size() == 0) {
+            fail = true;
+            return;
+        }
         int head = 0;
         while (head < queue.size()) {
             String kmer = queue.get(head++);
+            int distance = distanceToKmer.get(kmer);
             String[] neighbors = allNeighbors(kmer);
             for (String neighbor : neighbors) {
-                if (graph.get(getKmerKey(neighbor)) > 0) {
-                    queue.add(neighbor);
+                if (graph.getWithZero(getKmerKey(neighbor)) > 0) {
+                    if (termMode.allowsAddition(distanceToKmer, neighbor, distance + 1)) {
+                        queue.add(neighbor);
+                        distanceToKmer.put(neighbor, distance + 1);
+                    }
                 }
             }
+        }
+
+        for (String kmer : distanceToKmer.keySet()) {
             addToSubgraph(kmer);
-            graph.addAndBound(getKmerKey(kmer), (short) -graph.get(getKmerKey(kmer)));
         }
     }
 
@@ -85,7 +112,39 @@ public class KmerEnvCalculator implements Runnable {
     }
 
     private void addToSubgraph(String kmer) {
-        subgraph.put(normalizeDna(kmer), (int) graph.get(getKmerKey(kmer)));
+        subgraph.put(normalizeDna(kmer), (int) graph.getWithZero(getKmerKey(kmer)));
+    }
+
+    private void extendEnvironment() {
+        Iterator<Map.Entry<String, Integer>> iter = subgraph.entrySet().iterator();
+        Set<String> additions = new HashSet<String>();
+        while (iter.hasNext()) {
+            String kmer = iter.next().getKey();
+            while (true) {
+                String[] neighbors = allNeighbors(kmer);
+                String cont = null;
+                for (String neighbor : neighbors) {
+                    if (!subgraph.containsKey(normalizeDna(neighbor)) && graph.getWithZero(getKmerKey(neighbor)) > 0) {
+                        if (cont == null) {
+                            cont = kmer;
+                        } else {
+                            cont = "";
+                        }
+                    }
+                }
+                if (cont != null && !cont.equals("") && !additions.contains(cont)) {
+                    additions.add(cont);
+                    kmer = cont;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        logger.info("Extending endings by " + additions.size() + " kmers");
+        for (String kmer : additions) {
+            addToSubgraph(kmer);
+        }
     }
 
     private void createPicture() {
@@ -113,8 +172,9 @@ public class KmerEnvCalculator implements Runnable {
                 String seq = iter.next().getKey();
                 String rc = DnaTools.reverseComplement(seq);
                 SingleNode.Color color = getNodeColor.apply(seq);
-                nodes[id] = new SingleNode(seq, id, color);
-                nodes[id + 1] = new SingleNode(rc, id + 1, color);
+                boolean isGeneNode = sequence.contains(seq) || sequence.contains(rc);
+                nodes[id] = new SingleNode(seq, id, color, isGeneNode);
+                nodes[id + 1] = new SingleNode(rc, id + 1, color, isGeneNode);
                 nodes[id].rc = nodes[id + 1];
                 nodes[id + 1].rc = nodes[id];
 
@@ -145,7 +205,7 @@ public class KmerEnvCalculator implements Runnable {
             for (int i = 0; i < size; i++) {
                 if (!nodes[i].deleted && nodes[i].neighbors.size() == 1) {
                     SingleNode other = nodes[i].neighbors.get(0);
-                    if (other.neighbors.size() != 1 || nodes[i].color != other.color) {
+                    if (other.neighbors.size() != 1 || nodes[i].color != other.color || nodes[i].isGeneNode != other.isGeneNode) {
                         continue;
                     }
                     mergeNodes(nodes[i], other);

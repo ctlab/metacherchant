@@ -4,7 +4,6 @@ import algo.KmerEnvCalculator;
 import algo.SingleNode;
 import io.IOUtils;
 import io.LargeKIOUtils;
-import io.LargeKmerLoader;
 import ru.ifmo.genetics.dna.Dna;
 import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.dna.DnaTools;
@@ -24,13 +23,10 @@ import utils.PolynomialHash;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 
 import static algo.SingleNode.Color.*;
-import static algo.SingleNode.Color.GREY;
 import static utils.StringUtils.normalizeDna;
 
 /**

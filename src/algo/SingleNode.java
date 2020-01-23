@@ -41,4 +41,16 @@ public class SingleNode {
         this.changed = false;
         this.neighbors = new ArrayList<SingleNode>();
     }
+
+    public SingleNode(String sequence, int id, Color color, boolean isGeneNode) {
+        this.sequence = sequence;
+        this.id = id;
+        this.isGeneNode = isGeneNode;
+        this.color = color;
+
+        this.deleted = false;
+        this.visited = false;
+        this.changed = false;
+        this.neighbors = new ArrayList<SingleNode>();
+    }
 }
