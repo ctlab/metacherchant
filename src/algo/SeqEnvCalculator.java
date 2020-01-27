@@ -168,11 +168,16 @@ public class SeqEnvCalculator implements Runnable {
         {
             int id = 0;
             Iterator<Map.Entry<String, Integer>> iter = subgraph.entrySet().iterator();
+            Set<String> geneSeq = new HashSet<>();
+            for (int i = 0; i + k <= sequence.length(); i++) {
+                String kmer = sequence.substring(i, i + k);
+                geneSeq.add(kmer);
+            }
             while (iter.hasNext()) {
                 String seq = iter.next().getKey();
                 String rc = DnaTools.reverseComplement(seq);
                 SingleNode.Color color = getNodeColor.apply(seq);
-                boolean isGeneNode = sequence.contains(seq) || sequence.contains(rc);
+                boolean isGeneNode = geneSeq.contains(seq) || geneSeq.contains(rc);
                 nodes[id] = new SingleNode(seq, id, color, isGeneNode);
                 nodes[id + 1] = new SingleNode(rc, id + 1, color, isGeneNode);
                 nodes[id].rc = nodes[id + 1];
