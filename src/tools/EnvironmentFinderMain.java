@@ -4,6 +4,7 @@ import algo.*;
 import algo.TerminationMode.TerminationModeType;
 import io.IOUtils;
 import io.LargeKIOUtils;
+import io.RichFastaReader;
 import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.io.ReadersUtils;
 import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
@@ -116,6 +117,7 @@ public class EnvironmentFinderMain extends Tool {
 
     private BigLong2ShortHashMap reads;
     private List<DnaQ> sequences;
+    private List<String> comments;
     private HashFunction hasher;
 
     public void loadInput() throws ExecutionFailedException {
@@ -130,7 +132,9 @@ public class EnvironmentFinderMain extends Tool {
         }
         logger.info("Hashtable size: " + this.reads.size() + " kmers");
         try {
-            this.sequences = ReadersUtils.loadDnaQs(seqsFile.get());
+            RichFastaReader reader = new RichFastaReader(seqsFile.get());
+            this.sequences = reader.getDnas();
+            this.comments = reader.getComments();
         } catch (IOException e) {
             throw new ExecutionFailedException("Could not load sequences from " + seqsFile.get().getPath());
         }
@@ -210,9 +214,7 @@ public class EnvironmentFinderMain extends Tool {
 
     private String getOutputPrefix(int i) {
         String outputPrefix = outputDir.get().getPath() + "/";
-        if (sequences.size() > 1) {
-            outputPrefix += (i + 1) + "/";
-        }
+        outputPrefix += comments.get(i) + "/";
         return outputPrefix;
     }
 
