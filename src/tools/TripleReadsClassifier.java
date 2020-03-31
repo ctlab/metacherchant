@@ -49,9 +49,18 @@ public class TripleReadsClassifier extends Tool {
             .create());
 
     public final Parameter<File[]> inputFiles = addParameter(new FileMVParameterBuilder("input-files")
-            .mandatory()
             .withShortOpt("i")
             .withDescription("file with paired input reads for De Bruijn graph")
+            .create());
+
+    public final Parameter<File[]> inputKmers1 = addParameter(new FileMVParameterBuilder("input-kmers-1")
+            .withShortOpt("ik1")
+            .withDescription("file with k-mers in binary format for De Bruijn graph")
+            .create());
+
+    public final Parameter<File[]> inputKmers2 = addParameter(new FileMVParameterBuilder("input-kmers-2")
+            .withShortOpt("ik2")
+            .withDescription("file with k-mers in binary format for De Bruijn graph")
             .create());
 
     public final Parameter<File[]> readsFiles = addParameter(new FileMVParameterBuilder("read-files")
@@ -117,15 +126,22 @@ public class TripleReadsClassifier extends Tool {
         hasher = null;
     }
 
-    public void loadGraph(int k) throws ExecutionFailedException {
+    public void loadGraph(int k, Parameter<File[]> inputKmers) throws ExecutionFailedException {
         if (k > 31) {
-            logger.info("Reading hashes of k-mers instead");
             this.hasher = LargeKIOUtils.hash = determineHashFunction(k);
-            this.graph = LargeKIOUtils.loadReads(inputFiles.get(), k, 0,
-                    availableProcessors.get(), logger);
-        } else {
-            this.graph = IOUtils.loadReads(inputFiles.get(), k, 0,
-                    availableProcessors.get(), logger);
+        }
+        if (inputKmers.get() != null && inputKmers.get()[0].getName().toLowerCase().endsWith("kmers.bin")) {
+            this.graph = IOUtils.loadKmers(inputKmers.get(), 0, availableProcessors.get(), logger);
+        }
+        else {
+            if (k > 31) {
+                logger.info("Reading hashes of k-mers instead");
+                this.graph = LargeKIOUtils.loadReads(inputFiles.get(), k, 0,
+                        availableProcessors.get(), logger);
+            } else {
+                this.graph = IOUtils.loadReads(inputFiles.get(), k, 0,
+                        availableProcessors.get(), logger);
+            }
         }
         logger.info("Hashtable size: " + this.graph.size() + " kmers");
     }
@@ -165,7 +181,7 @@ public class TripleReadsClassifier extends Tool {
         PairSource<LightDnaQ> pairedSource = PairSource.create(source1, source2);
 
         info("Building graph with k = " + k.get() + " ...");
-        loadGraph(k.get());
+        loadGraph(k.get(), inputKmers1);
         info(doCorrection.get() ? "Searching for corrected reads in graph..." : "Searching for reads in graph...");
 
         Map<String, FindResult> isFoundInGraphOne_1 = new ConcurrentHashMap<>();
@@ -185,7 +201,7 @@ public class TripleReadsClassifier extends Tool {
 
         cleanImpl();
         info("Building graph with k = " + k2.get() + " ...");
-        loadGraph(k2.get());
+        loadGraph(k2.get(), inputKmers2);
         info(doCorrection.get() ? "Searching for corrected reads in graph..." : "Searching for reads in graph...");
 
         Queue<UniPair<LightDnaQ>> both_found = new ConcurrentLinkedQueue<>();
