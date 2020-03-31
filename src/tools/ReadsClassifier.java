@@ -47,7 +47,7 @@ public class ReadsClassifier extends Tool {
     public final Parameter<File[]> inputFiles = addParameter(new FileMVParameterBuilder("input-files")
             .mandatory()
             .withShortOpt("i")
-            .withDescription("file with paired input reads for De Bruijn graph")
+            .withDescription("file with paired input reads for De Bruijn graph OR file with k-mers in binary format")
             .create());
 
     public final Parameter<File[]> readsFiles = addParameter(new FileMVParameterBuilder("read-files")
@@ -92,15 +92,23 @@ public class ReadsClassifier extends Tool {
     private BigLong2ShortHashMap graph;
     private HashFunction hasher;
 
-    public void loadGraph() throws ExecutionFailedException {
+    public void loadGraph() throws ExecutionFailedException, IOException {
         if (k.get() > 31) {
-            logger.info("Reading hashes of k-mers instead");
             this.hasher = LargeKIOUtils.hash = determineHashFunction();
-            this.graph = LargeKIOUtils.loadReads(inputFiles.get(), k.get(), 0,
-                    availableProcessors.get(), logger);
-        } else {
-            this.graph = IOUtils.loadReads(inputFiles.get(), k.get(), 0,
-                    availableProcessors.get(), logger);
+        }
+        String fileFormat = inputFiles.get()[0].getName().toLowerCase();
+        if (fileFormat.endsWith("kmers.bin")) {
+            this.graph = IOUtils.loadKmers(inputFiles.get(), 0, availableProcessors.get(), logger);
+        }
+        else {
+            if (k.get() > 31) {
+                logger.info("Reading hashes of k-mers instead");
+                this.graph = LargeKIOUtils.loadReads(inputFiles.get(), k.get(), 0,
+                        availableProcessors.get(), logger);
+            } else {
+                this.graph = IOUtils.loadReads(inputFiles.get(), k.get(), 0,
+                        availableProcessors.get(), logger);
+            }
         }
         logger.info("Hashtable size: " + this.graph.size() + " kmers");
     }
