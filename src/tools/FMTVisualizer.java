@@ -287,9 +287,9 @@ public class FMTVisualizer extends Tool {
             File[] from_donor_files = {new File(inputPrefix + "came_from_donor_1." + extension.get()),
                     new File(inputPrefix + "came_from_donor_2." + extension.get()),
                     new File(inputPrefix + "came_from_donor_s." + extension.get())};
-            File[] from_before_files = {new File(inputPrefix + "came_from_before_1." + extension.get()),
-                    new File(inputPrefix + "came_from_before_2." + extension.get()),
-                    new File(inputPrefix + "came_from_before_s." + extension.get())};
+            File[] from_before_files = {new File(inputPrefix + "came_from_baseline_1." + extension.get()),
+                    new File(inputPrefix + "came_from_baseline_2." + extension.get()),
+                    new File(inputPrefix + "came_from_baseline_s." + extension.get())};
             File[] from_both_files = {new File(inputPrefix + "came_from_both_1." + extension.get()),
                     new File(inputPrefix + "came_from_both_2." + extension.get()),
                     new File(inputPrefix + "came_from_both_s." + extension.get())};
