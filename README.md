@@ -4,6 +4,14 @@ within a metagenome. The implementation is based on [MetaFast](https://github.co
 It also provides user with tools for comparing two metagenomes. For more details, please consult the 
 [reads classifier description](https://github.com/ivartb/metacherchant/blob/master/ReadsClassifier.md).
 
+## Content
+
+* [Installation](#installation)
+* [Running MetaCherchant](#running-metacherchant)
+* [Usage example](#usage-example)
+* [Output description](#output-description)
+* [Citation](#citation)
+
 ========
 
 ### Installation
@@ -74,3 +82,10 @@ After the end of the analysis, the results can be found in the folder specified 
 * `seqs.fasta` - a FASTA file containing all sufficiently long unitigs (non-branching sequences in de Bruijn graph) for later analysis.
 
 * `tsvs/*` - graph descriptions in .tsv format for use in [Cytoscape](http://www.cytoscape.org/) tool.
+
+### Citation
+
+If you use MetaCherchant in your research, please cite the following publication:
+
+Olekhnovich, E. I., Vasilyev, A. T., Ulyantsev, V. I., Kostryukova, E. S., & Tyakht, A. V. (2018). MetaCherchant: analyzing genomic context of antibiotic resistance genes in gut microbiota. Bioinformatics, 34(3), 434-444.
+[https://doi.org/10.1093/bioinformatics/btx681](https://doi.org/10.1093/bioinformatics/btx681)
