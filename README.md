@@ -55,6 +55,12 @@ Here is a bash script showing a typical usage of MetaCherchant:
 * `--bothdirs` flag setting the BFS (breadth-first search) algorithm to make 1 bidirectional pass from the target sequence. If this flag is not set, BFS makes two one-directional passes.
 * `--chunklength` minimum length of a contracted graph node to be included in output FASTA file for further analysis.
 
+After the end of analysis, found metagenomic environment can be visualised using de Bruijn graph, as on the figure below. For more information see [output description](#output-description) section.
+
+<img src="https://i.imgur.com/T9cxItu.png" alt="Single-metagenome environment" width="450">
+***adeC** gene in genome context of E.faecium. Target AR gene is shown in red.*
+
+
 #### Differential (multiple-metagenome) mode
 
 In this mode, it is possible to join two or more graphs constructed as described above and join them into a single graph. The example command is:
@@ -70,6 +76,14 @@ In this mode, it is possible to join two or more graphs constructed as described
 
 * All parameters except the last one are described in the single-mode section.
 * `--env` ordered list of `env.txt` files (results of single mode analysis) to be joined into a single graph.
+
+After the end of analysis, found metagenomic environment can be visualised using de Bruijn graph, as on the figure below. For more information see [output description](#output-description) section.
+
+<img src="https://i.imgur.com/F5dxCb8.png" alt="Multiple-metagenome environment" width="450">
+*Combined graph of AR gene context produced from two metagenomes
+of the same subject. Red color denotes the part of the
+graph present only at the time point 2, blue color — only at the point 3, black — at
+both points; green color denotes the graph nodes corresponding to the target AR gene*
 
 ### Output description
 
