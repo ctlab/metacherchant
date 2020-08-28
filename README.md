@@ -58,6 +58,7 @@ Here is a bash script showing a typical usage of MetaCherchant:
 After the end of analysis, found metagenomic environment can be visualised using de Bruijn graph, as on the figure below. For more information see [output description](#output-description) section.
 
 <img src="https://i.imgur.com/T9cxItu.png" alt="Single-metagenome environment" width="450">
+
 ***adeC** gene in genome context of E.faecium. Target AR gene is shown in red.*
 
 
@@ -80,6 +81,7 @@ In this mode, it is possible to join two or more graphs constructed as described
 After the end of analysis, found metagenomic environment can be visualised using de Bruijn graph, as on the figure below. For more information see [output description](#output-description) section.
 
 <img src="https://i.imgur.com/F5dxCb8.png" alt="Multiple-metagenome environment" width="450">
+
 *Combined graph of AR gene context produced from two metagenomes
 of the same subject. Red color denotes the part of the
 graph present only at the time point 2, blue color — only at the point 3, black — at
