@@ -4,6 +4,7 @@ import io.writers.GFAWriter;
 import io.writers.TSVWriter;
 import org.apache.log4j.Logger;
 import ru.ifmo.genetics.dna.Dna;
+import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.dna.DnaTools;
 import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
 import ru.ifmo.genetics.utils.KmerUtils;
@@ -19,6 +20,7 @@ import static utils.StringUtils.*;
 
 public class OneSequenceCalculator implements Runnable {
     private final String sequence;
+    private final List<DnaQ> sequences;
     private final String outputPrefix;
     private final String workPrefix;
     private final int minOccurences;
@@ -30,6 +32,7 @@ public class OneSequenceCalculator implements Runnable {
     private final int chunkLength;
     private final TerminationMode termMode;
     private final boolean trimPaths;
+    private final boolean doMerge;
 
     private final Map<String, Integer> subgraph;
 
@@ -42,6 +45,7 @@ public class OneSequenceCalculator implements Runnable {
                                  HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections,
                                  int chunkLength, TerminationMode termMode, boolean trimPaths) {
         this.sequence = sequence;
+        this.sequences = null;
         this.k = k;
         this.outputPrefix = outputPrefix;
         this.workPrefix = workPrefix;
@@ -53,6 +57,28 @@ public class OneSequenceCalculator implements Runnable {
         this.chunkLength = chunkLength;
         this.termMode = termMode;
         this.trimPaths = trimPaths;
+        this.doMerge = false;
+
+        this.subgraph = new HashMap<String, Integer>();
+    }
+
+    public OneSequenceCalculator(List<DnaQ> sequences, int k, int minOccurences, String outputPrefix, String workPrefix,
+                                 HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections,
+                                 int chunkLength, TerminationMode termMode, boolean trimPaths) {
+        this.sequence = null;
+        this.sequences = sequences;
+        this.k = k;
+        this.outputPrefix = outputPrefix;
+        this.workPrefix = workPrefix;
+        this.minOccurences = minOccurences;
+        this.hasher = hasher;
+        this.reads = reads;
+        this.logger = logger;
+        this.bothDirections = bothDirections;
+        this.chunkLength = chunkLength;
+        this.termMode = termMode;
+        this.trimPaths = trimPaths;
+        this.doMerge = true;
 
         this.subgraph = new HashMap<String, Integer>();
     }
@@ -68,7 +94,11 @@ public class OneSequenceCalculator implements Runnable {
 
     @Override
     public void run() {
-        logger.info("Finding environment for sequence " + shortenLabel(sequence, k));
+        if (!doMerge) {
+            logger.info("Finding environment for sequence " + shortenLabel(sequence, k));
+        } else {
+            logger.info("Finding single environment for " + sequences.size() + " sequences");
+        }
         buildEnvironment();
         if (fail) {
             logger.info("Could not find any k-mers of the target gene in the input, halting.");
@@ -86,8 +116,15 @@ public class OneSequenceCalculator implements Runnable {
         PrintWriter out;
         try {
             out = new PrintWriter(output);
-            out.println(">seq");
-            out.println(sequence);
+            if (!doMerge) {
+                out.println(">seq");
+                out.println(sequence);
+            } else {
+                for (int i = 0; i < sequences.size(); i++) {
+                    out.println(">seq_" + i);
+                    out.println(sequences.get(i).toString());
+                }
+            }
             out.close();
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -116,12 +153,26 @@ public class OneSequenceCalculator implements Runnable {
         Map<String, Integer> distanceToKmer = new HashMap<String, Integer>();
         Set<String> lastKmers = new HashSet<String>();
 
-        for (int i = 0; i + k <= sequence.length(); i++) {
-            String kmer = sequence.substring(i, i + k);
-            int occs = reads.get(getKmerKey(kmer));
-            if (occs >= minOccurences) {
-                queue.add(kmer);
-                distanceToKmer.put(kmer, 0);
+        if (!doMerge) {
+            for (int i = 0; i + k <= sequence.length(); i++) {
+                String kmer = sequence.substring(i, i + k);
+                int occs = reads.get(getKmerKey(kmer));
+                if (occs >= minOccurences) {
+                    queue.add(kmer);
+                    distanceToKmer.put(kmer, 0);
+                }
+            }
+        } else {
+            for (DnaQ s : sequences) {
+                String sequence = s.toString();
+                for (int i = 0; i + k <= sequence.length(); i++) {
+                    String kmer = sequence.substring(i, i + k);
+                    int occs = reads.get(getKmerKey(kmer));
+                    if (occs >= minOccurences) {
+                        queue.add(kmer);
+                        distanceToKmer.put(kmer, 0);
+                    }
+                }
             }
         }
         if (queue.size() == 0) {
@@ -328,9 +379,9 @@ public class OneSequenceCalculator implements Runnable {
             while (iter.hasNext()) {
                 String seq = iter.next().getKey();
                 String rc = DnaTools.reverseComplement(seq);
-                boolean isGeneNode = sequence.contains(seq) || sequence.contains(rc);
-                nodes[id] = new SingleNode(seq, id, isGeneNode);
-                nodes[id + 1] = new SingleNode(rc, id + 1, isGeneNode);
+                boolean isGeneNode = isGeneNode(seq, rc);
+                nodes[id] = new SingleNode(seq, id, isGeneNode ? SingleNode.Color.GREEN : null, isGeneNode);
+                nodes[id + 1] = new SingleNode(rc, id + 1, isGeneNode ? SingleNode.Color.GREEN : null, isGeneNode);
                 nodes[id].rc = nodes[id + 1];
                 nodes[id + 1].rc = nodes[id];
 
@@ -349,6 +400,19 @@ public class OneSequenceCalculator implements Runnable {
             if (nodeByKmer.containsKey(lastK)) {
                 nodes[i].rc.neighbors.addAll(nodeByKmer.get(lastK));
             }
+        }
+    }
+
+    private boolean isGeneNode(String seq, String rc) {
+        if (!doMerge) {
+            return sequence.contains(seq) || sequence.contains(rc);
+        } else {
+            for (DnaQ s : sequences) {
+                if (s.toString().contains(seq) || s.toString().contains(rc)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
