@@ -70,11 +70,11 @@ public class GFAWriter {
         out.print("L\t");
         out.print((Math.min(first.rc.id, first.id) + 1) + (first.isGeneNode ? GENE_LABEL_SUFFIX : ""));
         out.print('\t');
-        out.print((first.id < first.rc.id ? "+" : "-"));
+        out.print((first.id < first.rc.id ? "-" : "+"));
         out.print('\t');
         out.print((Math.min(second.rc.id, second.id) + 1) + (second.isGeneNode ? GENE_LABEL_SUFFIX : ""));
         out.print('\t');
-        out.print((second.id > second.rc.id ? "+" : "-"));
+        out.print((second.id > second.rc.id ? "-" : "+"));
         out.print('\t');
         out.println((k - 1) + "M");
     }
