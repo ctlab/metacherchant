@@ -52,14 +52,16 @@ public class GFAWriter {
             e.printStackTrace();
         }
         for (int i = 0; i < size; i++) {
-            if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id) {
+            if (!nodes[i].deleted && nodes[i].sequence.compareTo(nodes[i].rc.sequence) <= 0) {
                 printLabel(out, nodes[i]);
             }
         }
         for (SingleNode i : nodes) {
             if (!i.deleted) {
                 for (SingleNode j : i.neighbors) {
-                    printEdge(out, i, j);
+                    if (!j.deleted) {
+                        printEdge(out, i, j);
+                    }
                 }
             }
         }
@@ -68,19 +70,19 @@ public class GFAWriter {
 
     private void printEdge(PrintWriter out, SingleNode first, SingleNode second) {
         out.print("L\t");
-        out.print((Math.min(first.rc.id, first.id) + 1) + (first.isGeneNode ? GENE_LABEL_SUFFIX : ""));
+        out.print(getNodeId(first));
         out.print('\t');
-        out.print((first.id < first.rc.id ? "+" : "-"));
+        out.print((first.sequence.compareTo(first.rc.sequence) >= 0 ? "+" : "-"));
         out.print('\t');
-        out.print((Math.min(second.rc.id, second.id) + 1) + (second.isGeneNode ? GENE_LABEL_SUFFIX : ""));
+        out.print(getNodeId(second));
         out.print('\t');
-        out.print((second.id > second.rc.id ? "+" : "-"));
+        out.print((second.sequence.compareTo(second.rc.sequence) <= 0 ? "+" : "-"));
         out.print('\t');
         out.println((k - 1) + "M");
     }
 
     private String getNodeId(SingleNode node) {
-        return (node.id < node.rc.id ? "" : "-") + (Math.min(node.rc.id, node.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
+        return "" + ((node.sequence.compareTo(node.rc.sequence) <= 0 ? node.id : node.rc.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
     }
 
     private void printLabel(PrintWriter out, SingleNode node) {
@@ -90,6 +92,8 @@ public class GFAWriter {
             String kmer = node.sequence.substring(i, i + k);
             coverage += subgraph.get(StringUtils.normalizeDna(kmer));
         }
+        coverage += subgraph.get(StringUtils.normalizeDna(node.sequence.substring(node.sequence.length()-k)))*(k-1);
+
         out.println("\tLN:i:" + (node.sequence.length()) + "\tKC:i:" + coverage +
                 (node.color == null ? "" : ("\tCL:z:" + node.color)));
     }
