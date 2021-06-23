@@ -41,7 +41,7 @@ public class TSVWriter {
         }
         out.println("id\tlength\tseq");
         for (int i = 0; i < size; i++) {
-            if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id) {
+            if (!nodes[i].deleted && nodes[i].sequence.compareTo(nodes[i].rc.sequence) <= 0) {
                 out.println((i + 1) + "\t" + nodes[i].sequence.length() + "\t" + nodes[i].sequence);
             }
         }
@@ -60,7 +60,9 @@ public class TSVWriter {
         for (SingleNode i : nodes) {
             if (!i.deleted) {
                 for (SingleNode j : i.neighbors) {
-                    printEdge(out, i, j);
+                    if (!j.deleted) {
+                        printEdge(out, i, j);
+                    }
                 }
             }
         }
@@ -69,10 +71,10 @@ public class TSVWriter {
 
 
     private void printEdge(PrintWriter out, SingleNode first, SingleNode second) {
-        out.println(getNodeId(first) + "\t" + getNodeId(second) + "\tpp");
+        out.println(getNodeId(first.rc) + "\t" + getNodeId(second) + "\tpp");
     }
 
     private String getNodeId(SingleNode node) {
-        return (node.id < node.rc.id ? "" : "-") + (Math.min(node.rc.id, node.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
+        return "" + (node.sequence.compareTo(node.rc.sequence) <= 0 ? node.id + 1 : "-" + (node.rc.id + 1)) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
     }
 }

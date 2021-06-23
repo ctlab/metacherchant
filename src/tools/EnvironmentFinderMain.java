@@ -4,6 +4,7 @@ import algo.*;
 import algo.TerminationMode.TerminationModeType;
 import io.IOUtils;
 import io.LargeKIOUtils;
+import io.RichFastaReader;
 import ru.ifmo.genetics.dna.DnaQ;
 import ru.ifmo.genetics.io.ReadersUtils;
 import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
@@ -33,7 +34,6 @@ public class EnvironmentFinderMain extends Tool {
             .mandatory()
             .withShortOpt("k")
             .withDescription("k-mer size")
-            .withDefaultValue(21)
             .create());
 
     public final Parameter<File[]> readsFiles = addParameter(new FileMVParameterBuilder("reads")
@@ -89,11 +89,6 @@ public class EnvironmentFinderMain extends Tool {
             .withDefaultValue("poly")
             .create());
 
-    public final Parameter<Integer> maxThreads = addParameter(new IntParameterBuilder("threads")
-            .withDescription("how many java threads to use")
-            .withDefaultValue(DEFAULT_MAX_THREADS)
-            .create()
-    );
 
     public final Parameter<Boolean> trimPaths = addParameter(new BoolParameterBuilder("trim")
             .withDescription("trim all not maximal paths?")
@@ -101,6 +96,13 @@ public class EnvironmentFinderMain extends Tool {
             .create()
     );
 
+    public final Parameter<Boolean> doMerge = addParameter(new BoolParameterBuilder("merge")
+            .withDescription("Draw single environment for multiple input sequences?")
+            .withDefaultValue(false)
+            .create()
+    );
+
+    /*
     public final Parameter<Integer> percentFiltration = addParameter(new IntParameterBuilder("procfiltration")
             .mandatory()
             .withShortOpt("pf")
@@ -112,15 +114,16 @@ public class EnvironmentFinderMain extends Tool {
             .withDescription("do filtration on branches?")
             .withDefaultValue(false)
             .create());
-
+    */
 
     private BigLong2ShortHashMap reads;
     private List<DnaQ> sequences;
+    private List<String> comments;
     private HashFunction hasher;
 
     public void loadInput() throws ExecutionFailedException {
         if (k.get() > 31 || forceHashing.get()) {
-            logger.info("Reading hashes of k-mers instead");
+            info("Reading hashes of k-mers instead");
             this.hasher = LargeKIOUtils.hash = determineHashFunction();
             this.reads = LargeKIOUtils.loadReads(readsFiles.get(), k.get(), 0,
                     availableProcessors.get(), logger);
@@ -128,9 +131,11 @@ public class EnvironmentFinderMain extends Tool {
             this.reads = IOUtils.loadReads(readsFiles.get(), k.get(), 0,
                     availableProcessors.get(), logger);
         }
-        logger.info("Hashtable size: " + this.reads.size() + " kmers");
+        info("Hashtable size: " + this.reads.size() + " kmers");
         try {
-            this.sequences = ReadersUtils.loadDnaQs(seqsFile.get());
+            RichFastaReader reader = new RichFastaReader(seqsFile.get());
+            this.sequences = reader.getDnas();
+            this.comments = reader.getComments();
         } catch (IOException e) {
             throw new ExecutionFailedException("Could not load sequences from " + seqsFile.get().getPath());
         }
@@ -143,10 +148,10 @@ public class EnvironmentFinderMain extends Tool {
         }
         String name = hashFunction.get().toLowerCase();
         if (name.equals("fnv1a")) {
-            logger.info("Using FNV1a hash function");
+            info("Using FNV1a hash function");
             return new FNV1AHash();
         } else {
-            logger.info("Using default polynomial hash function");
+            info("Using default polynomial hash function");
             return new PolynomialHash();
         }
     }
@@ -168,7 +173,8 @@ public class EnvironmentFinderMain extends Tool {
     @Override
     protected void runImpl() throws ExecutionFailedException {
         loadInput();
-        ExecutorService execService = Executors.newFixedThreadPool(maxThreads.get());
+        ExecutorService execService = Executors.newFixedThreadPool(availableProcessors.get());
+        /* Obsolete code which filters environment based on reads coverage. Needs redesign
         if (sequences.size() == 1) {
             String outputPrefix = getOutputPrefix(0);
             String workPrefix = workDir.get().getPath() + "/";
@@ -195,7 +201,9 @@ public class EnvironmentFinderMain extends Tool {
                 calc.createFilteredPicture(nodes);
                 logger.info("Branch filtration by reads done!");
             }
-        } else {
+        }*/
+
+        if (!doMerge.get()) {
             for (int i = 0; i < sequences.size(); i++) {
                 String outputPrefix = getOutputPrefix(i);
                 String workPrefix = workDir.get().getPath() + "/";
@@ -203,16 +211,27 @@ public class EnvironmentFinderMain extends Tool {
                         minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
                         bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
             }
-            execService.shutdown();
+        } else {
+            String outputPrefix = outputDir.get().getPath() + "/merged/";
+            String workPrefix = workDir.get().getPath() + "/";
+            execService.execute(new OneSequenceCalculator(sequences, k.get(),
+                    minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
+                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
         }
-        logger.info("Finished processing all sequences!");
+
+        execService.shutdown();
+        try {
+            execService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            throw new ExecutionFailedException("Error while building graphic environment: " + e.toString());
+        }
+
+        info("Finished processing all sequences!");
     }
 
     private String getOutputPrefix(int i) {
         String outputPrefix = outputDir.get().getPath() + "/";
-        if (sequences.size() > 1) {
-            outputPrefix += (i + 1) + "/";
-        }
+        outputPrefix += comments.get(i) + "/";
         return outputPrefix;
     }
 
