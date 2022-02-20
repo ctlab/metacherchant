@@ -3,7 +3,7 @@
 ### Running ***HiCEnvironmentFinder***
 
 To run HiCEnvironmentFinder use the following syntax:
-* `HiCEnvironmentFinder.sh` [<Launch options>]
+* `HiCEnvironmentFinder.sh [<Launch options>]`
 
 ### Usage example
 
