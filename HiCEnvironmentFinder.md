@@ -5,6 +5,13 @@
 To run HiCEnvironmentFinder use the following syntax:
 * `HiCEnvironmentFinder.sh [<Launch options>]`
 
+Prerequisites:
+* java (>= 1.8 version)
+* python (3 version)
+* [pandas](https://pandas.pydata.org/)
+* [bwa](http://bio-bwa.sourceforge.net/bwa.shtml)
+* [samtools](http://www.htslib.org/doc/samtools-view.html)
+
 ### Usage example
 
 Here is a bash script showing a typical usage of HiCEnvironmentFinder:
@@ -24,7 +31,7 @@ Here is a bash script showing a typical usage of HiCEnvironmentFinder:
 
 * `--reads` list of all input files with metagenomic reads separated by space. FASTA and FASTQ formats are supported.
 * `--seq` a FASTA file with the target nucleotide sequences, for each of which a genomic environment will be built.
-* `--hi-c-r1` and `--hi-c-r2` two input files with paired Hi-C reads. This parameters assumes the i-th read in hic_R1.fastq and the i-th read in hic_R2.fastq constitute a read pair.
+* `--hi-c-r1` and `--hi-c-r2` two input files with paired Hi-C reads. This parameters assumes the i-th read in hic_R1.fastq and the i-th read in hic_R2.fastq constitute a read pair. FASTA and FASTQ formats are supported.
 * `--work-dir` working directory with intermediate files, logs and output folder.
 * `--metacherchant` path to metacherchant jar file.
 * `--k` --- the size of k-mer used in de Bruijn graph. It is optioanl parameter. Default value is 31.
