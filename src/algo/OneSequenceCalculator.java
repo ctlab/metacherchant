@@ -351,10 +351,6 @@ public class OneSequenceCalculator implements Runnable {
         }
     }
 
-    private String getNodeId(SingleNode node) {
-        return "" + ((node.sequence.compareTo(node.rc.sequence) <= 0 ? node.id : node.rc.id) + 1);
-    }
-
     private void outputNodeSequences(String outputPrefix, SingleNode[] nodes) {
         try {
             File output = new File(outputPrefix + "/seqs.fasta");
@@ -363,7 +359,7 @@ public class OneSequenceCalculator implements Runnable {
             for (int i = 0; i < nodes.length; i++) {
                 if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id && nodes[i].sequence.length() >= chunkLength) {
                     out.print("> ");
-                    out.print("Id" + getNodeId(nodes[i]) + " ");
+                    out.print("Id" + nodeId(nodes[i]) + " ");
                     out.print("Length:" + nodes[i].sequence.length() + " ");
                     out.print("Neighbors:" + getNeighborIds(nodes[i]));
                     out.println();
