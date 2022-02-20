@@ -6,7 +6,6 @@ import io.IOUtils;
 import io.LargeKIOUtils;
 import io.RichFastaReader;
 import ru.ifmo.genetics.dna.DnaQ;
-import ru.ifmo.genetics.io.ReadersUtils;
 import ru.ifmo.genetics.structures.map.BigLong2ShortHashMap;
 import ru.ifmo.genetics.utils.tool.ExecutionFailedException;
 import ru.ifmo.genetics.utils.tool.Parameter;
@@ -47,6 +46,9 @@ public class EnvironmentFinderMain extends Tool {
             .withDescription("FASTA file with sequences")
             .create());
 
+    public final Parameter<File> hicSeqsFile = addParameter(new FileParameterBuilder("hicseq")
+            .withDescription("FASTA file with Hi-C sequences")
+            .create());
 
     public final Parameter<File> outputDir = addParameter(new FileParameterBuilder("output")
             .mandatory()
@@ -118,6 +120,7 @@ public class EnvironmentFinderMain extends Tool {
 
     private BigLong2ShortHashMap reads;
     private List<DnaQ> sequences;
+    private List<DnaQ> hicSequences;
     private List<String> comments;
     private HashFunction hasher;
 
@@ -138,6 +141,15 @@ public class EnvironmentFinderMain extends Tool {
             this.comments = reader.getComments();
         } catch (IOException e) {
             throw new ExecutionFailedException("Could not load sequences from " + seqsFile.get().getPath());
+        }
+        try {
+            if (hicSeqsFile.get() != null) {
+                RichFastaReader reader = new RichFastaReader(hicSeqsFile.get());
+                this.hicSequences = reader.getDnas();
+                this.comments = reader.getComments();
+            }
+        } catch (IOException e) {
+            throw new ExecutionFailedException("Could not load Hi-C sequences from " + hicSeqsFile.get().getPath());
         }
     }
 
@@ -212,11 +224,12 @@ public class EnvironmentFinderMain extends Tool {
                         bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
             }
         } else {
+            info("hicSequences = " + (hicSequences == null ? 0 : hicSequences.size()));
             String outputPrefix = outputDir.get().getPath() + "/merged/";
             String workPrefix = workDir.get().getPath() + "/";
             execService.execute(new OneSequenceCalculator(sequences, k.get(),
                     minCoverage.get(), outputPrefix, workPrefix, this.hasher, reads, logger,
-                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get()));
+                    bothDirections.get(), chunkLength.get(), getTerminationMode(), trimPaths.get(), hicSequences));
         }
 
         execService.shutdown();

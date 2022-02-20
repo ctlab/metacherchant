@@ -40,6 +40,7 @@ public class OneSequenceCalculator implements Runnable {
     private SingleNode[] nodes;
     private boolean fail = false;
     private Set<SingleNode> filtered;
+    private final List<DnaQ> hicSequences;
 
     public OneSequenceCalculator(String sequence, int k, int minOccurences, String outputPrefix, String workPrefix,
                                  HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections,
@@ -58,13 +59,14 @@ public class OneSequenceCalculator implements Runnable {
         this.termMode = termMode;
         this.trimPaths = trimPaths;
         this.doMerge = false;
+        this.hicSequences = new ArrayList<>();
 
         this.subgraph = new HashMap<String, Integer>();
     }
 
     public OneSequenceCalculator(List<DnaQ> sequences, int k, int minOccurences, String outputPrefix, String workPrefix,
                                  HashFunction hasher, BigLong2ShortHashMap reads, Logger logger, boolean bothDirections,
-                                 int chunkLength, TerminationMode termMode, boolean trimPaths) {
+                                 int chunkLength, TerminationMode termMode, boolean trimPaths, List<DnaQ> hicSequences) {
         this.sequence = null;
         this.sequences = sequences;
         this.k = k;
@@ -79,6 +81,7 @@ public class OneSequenceCalculator implements Runnable {
         this.termMode = termMode;
         this.trimPaths = trimPaths;
         this.doMerge = true;
+        this.hicSequences = hicSequences != null ? hicSequences : new ArrayList<>();
 
         this.subgraph = new HashMap<String, Integer>();
     }
@@ -164,6 +167,18 @@ public class OneSequenceCalculator implements Runnable {
             }
         } else {
             for (DnaQ s : sequences) {
+                String sequence = s.toString();
+                for (int i = 0; i + k <= sequence.length(); i++) {
+                    String kmer = sequence.substring(i, i + k);
+                    int occs = reads.get(getKmerKey(kmer));
+                    if (occs >= minOccurences) {
+                        queue.add(kmer);
+                        distanceToKmer.put(kmer, 0);
+                    }
+                }
+            }
+
+            for (DnaQ s : hicSequences) {
                 String sequence = s.toString();
                 for (int i = 0; i + k <= sequence.length(); i++) {
                     String kmer = sequence.substring(i, i + k);
@@ -336,6 +351,10 @@ public class OneSequenceCalculator implements Runnable {
         }
     }
 
+    private String getNodeId(SingleNode node) {
+        return "" + ((node.sequence.compareTo(node.rc.sequence) <= 0 ? node.id : node.rc.id) + 1);
+    }
+
     private void outputNodeSequences(String outputPrefix, SingleNode[] nodes) {
         try {
             File output = new File(outputPrefix + "/seqs.fasta");
@@ -344,7 +363,7 @@ public class OneSequenceCalculator implements Runnable {
             for (int i = 0; i < nodes.length; i++) {
                 if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id && nodes[i].sequence.length() >= chunkLength) {
                     out.print("> ");
-                    out.print("Id" + (nodes[i].id + 1) + " ");
+                    out.print("Id" + getNodeId(nodes[i]) + " ");
                     out.print("Length:" + nodes[i].sequence.length() + " ");
                     out.print("Neighbors:" + getNeighborIds(nodes[i]));
                     out.println();
@@ -422,7 +441,7 @@ public class OneSequenceCalculator implements Runnable {
             for (int i = 0; i < size; i++) {
                 if (!nodes[i].deleted && nodes[i].neighbors.size() == 1) {
                     SingleNode other = nodes[i].neighbors.get(0);
-                    if (other.neighbors.size() != 1 || nodes[i].isGeneNode != other.isGeneNode) {
+                    if (other.neighbors.size() != 1 || (nodes[i].isGeneNode != other.isGeneNode)) {
                         continue;
                     }
                     mergeNodes(nodes[i], other);
