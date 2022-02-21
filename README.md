@@ -1,8 +1,10 @@
 **MetaCherchant** is a tool for analysing genomic environment of a nucleotide sequence
 within a metagenome. The implementation is based on [MetaFast](https://github.com/ctlab/metafast/wiki) source code.
 
+Starting from [version 0.1.0](https://github.com/ctlab/metacherchant/releases/tag/v0.1.0) it supports Hi-C reads input to facilitate genomic context extraction for extrachromosomal DNA. For detailed instructions, please refer to [HiCEnvironmentFinder description](HiCEnvironmentFinder.md).
+
 It also provides user with tools for comparing two metagenomes. For more details, please consult the 
-[reads classifier description](https://github.com/ivartb/metacherchant/blob/master/ReadsClassifier.md).
+[reads classifier description](ReadsClassifier.md).
 
 ## Content
 

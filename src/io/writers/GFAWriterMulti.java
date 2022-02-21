@@ -107,7 +107,7 @@ public class GFAWriterMulti {
             if (node.isGeneNode) {
                 return COLOR_GREEN;
             }
-            switch ((int) node.mask) {
+            switch ((int) node.graphs.size()) {
                 case 1:
                     return COLOR_RED;
                 case 2:
