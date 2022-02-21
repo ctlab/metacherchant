@@ -54,3 +54,5 @@ After the end of the analysis, the results can be found in the folder specified 
 ### Results visualisation
 
 The obtained genomic environment can be visualized in [Bandage](http://rrwick.github.io/Bandage/). 
+
+![example](https://user-images.githubusercontent.com/17966048/154980704-5d5b06cf-bedc-4a3c-b2f7-5e5691b7b340.png)
