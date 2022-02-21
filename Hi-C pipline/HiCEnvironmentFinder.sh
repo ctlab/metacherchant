@@ -46,9 +46,10 @@ do
 	shift
 done
 
-if [${wgs_reads} == "" || ${seq_path} == "" || ${work_dir} == "" || ${hi_c_r1} == "" || ${hi_c_r2} == "" || ${metacherchant} == ""]
+if [[ ${wgs_reads} = "" || ${seq_path} = "" || ${work_dir} = "" || ${hi_c_r1} = "" || ${hi_c_r2} = "" || ${metacherchant} = "" ]]
 then
 echo "Please add all mandatory parameters: --reads --seq --work-dir --metacherchant --hi-c-r1 --hi-c-r2"
+exit -1
 fi
 
 work_dir="${work_dir}/"
@@ -73,5 +74,3 @@ samtools view -@ 12 -f 1 -F 2060 -b -o "${work_dir}2/filteredHiC_pair_map.bam" "
 samtools view "${work_dir}2/filteredHiC_pair_map.bam" | awk '($3!=$7 && $7!="=")' - > "${work_dir}2/filtered_HiC_diff_chr.sam"
 
 python hic_map.py "${work_dir}2/" "filtered_HiC_diff_chr.sam"
-
-$SHELL

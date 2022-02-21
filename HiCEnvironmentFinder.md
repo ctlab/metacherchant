@@ -51,6 +51,6 @@ After the end of the analysis, the results can be found in the folder specified 
 * `2/hic_map.txt` - mapping Hi-C reads to the contigs in the format: <contig id 1> <contig id 2> <hi-c weight> where hi-c weight is equal to count of Hi-C crosslinks between two contigs.
 
 
-### Results visialisation
+### Results visualisation
 
 The obtained genomic environment can be visualized in [Bandage](http://rrwick.github.io/Bandage/). 
