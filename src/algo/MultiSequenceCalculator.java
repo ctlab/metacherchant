@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
 
+import static io.writers.GFAWriterMulti.GENE_LABEL_SUFFIX;
 import static utils.StringUtils.*;
 
 public class MultiSequenceCalculator implements Runnable {
@@ -142,7 +143,7 @@ public class MultiSequenceCalculator implements Runnable {
             for (int i = 0; i < size; i++) {
                 if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id) {
                     out.print("> ");
-                    out.print("Id" + (i + 1) + " ");
+                    out.print("Id" + getNodeId(nodes[i]) + " ");
                     out.print("Length:" + nodes[i].sequence.length() + " ");
                     out.print("Neighbors:" + getNeighborIds(nodes[i]));
                     out.println();
@@ -153,6 +154,10 @@ public class MultiSequenceCalculator implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private String getNodeId(MultiNode node) {
+        return (node.id < node.rc.id ? "" : "-") + (Math.min(node.rc.id, node.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
     }
 
     private Set<Integer> getNeighborIds(MultiNode node) {
