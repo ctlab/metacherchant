@@ -53,13 +53,13 @@ fi
 
 work_dir="${work_dir}/"
 
-java -jar $metacherchant --k $k --coverage $coverage --reads $wgs_reads --seq $seq_path --output "${work_dir}output/1" --work-dir "${work_dir}workDir/1" --maxradius $maxradius --bothdirs False --chunklength 10
+java -jar $metacherchant --k $k --coverage $coverage --reads $wgs_reads --seq $seq_path --output "${work_dir}output/1" --work-dir "${work_dir}workDir/1" --maxradius $maxradius --bothdirs False --chunklength 10 --merge true
 
 mkdir "${work_dir}1"
 mkdir "${work_dir}2"
 
-bwa index "${work_dir}output/1/seqs.fasta"
-bwa mem -t 12 "${work_dir}output/1/seqs.fasta" "${hi_c_r1}" "${hi_c_r2}" > "${work_dir}1/all_hic_reads.sam"
+bwa index "${work_dir}output/1/merged/seqs.fasta"
+bwa mem -t 12 "${work_dir}output/1/merged/seqs.fasta" "${hi_c_r1}" "${hi_c_r2}" > "${work_dir}1/all_hic_reads.sam"
 samtools view -f 0x5 -F 0x908 -o "${work_dir}1/filteredHiC_1.bam" "${work_dir}1/all_hic_reads.sam"
 samtools view "${work_dir}1/filteredHiC_1.bam" | awk ' {print ">"1"\n"$10} ' - > "${work_dir}1/selected_reads.fasta"
 
