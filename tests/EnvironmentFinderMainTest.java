@@ -16,7 +16,6 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 
 
-
 public class EnvironmentFinderMainTest {
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();

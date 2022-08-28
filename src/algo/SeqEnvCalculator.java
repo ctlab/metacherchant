@@ -271,7 +271,7 @@ public class SeqEnvCalculator implements Runnable {
     }
 
     private String getNodeId(SingleNode node) {
-        return "" + (Math.min(node.id, node.rc.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
+        return (Math.min(node.id, node.rc.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
     }
 
     private Set<Integer> getNeighborIds(SingleNode SingleNode) {

@@ -359,7 +359,7 @@ public class OneSequenceCalculator implements Runnable {
             for (int i = 0; i < nodes.length; i++) {
                 if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id && nodes[i].sequence.length() >= chunkLength) {
                     out.print("> ");
-                    out.print("Id" + nodeId(nodes[i]) + " ");
+                    out.print("Id" + getNodeId(nodes[i]) + " ");
                     out.print("Length:" + nodes[i].sequence.length() + " ");
                     out.print("Neighbors:" + getNeighborIds(nodes[i]));
                     out.println();
@@ -461,8 +461,8 @@ public class OneSequenceCalculator implements Runnable {
         return a + b.substring(k - 1);
     }
 
-    private String nodeId(SingleNode a) {
-        return (Math.min(a.rc.id, a.id) + 1) + (a.isGeneNode ? "_start" : "");
+    private String getNodeId(SingleNode a) {
+        return (Math.min(a.rc.id, a.id) + 1) + (a.isGeneNode ? GENE_LABEL_SUFFIX : "");
     }
 
     public SingleNode[] filter() {
@@ -476,7 +476,7 @@ public class OneSequenceCalculator implements Runnable {
                     PrintWriter out = new PrintWriter(output);
                     int[] lengths = new int[nodes[i].neighbors.size()];
                     for (int j = 0; j < nodes[i].neighbors.size(); j++) {
-                        out.println(">" + j + " " + nodeId(nodes[i]) + "->" + nodeId(nodes[i].neighbors.get(j)));
+                        out.println(">" + j + " " + getNodeId(nodes[i]) + "->" + getNodeId(nodes[i].neighbors.get(j)));
                         String other = nodes[i].neighbors.get(j).rc.sequence;
                         int len1 = Math.min(other.length(), 100);
                         int len2 = Math.min(nodes[i].sequence.length(), 100);
