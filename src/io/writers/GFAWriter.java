@@ -1,5 +1,6 @@
 package io.writers;
 
+import algo.MultiNode;
 import algo.SingleNode;
 import utils.StringUtils;
 
@@ -82,7 +83,7 @@ public class GFAWriter {
     }
 
     private String getNodeId(SingleNode node) {
-        return "" + ((node.sequence.compareTo(node.rc.sequence) <= 0 ? node.id : node.rc.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
+        return (Math.min(node.rc.id, node.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
     }
 
     private void printLabel(PrintWriter out, SingleNode node) {

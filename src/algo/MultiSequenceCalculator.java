@@ -1,5 +1,6 @@
 package algo;
 
+import io.writers.GFAWriter;
 import io.writers.GFAWriterMulti;
 import org.apache.log4j.Logger;
 import ru.ifmo.genetics.dna.DnaTools;
@@ -156,10 +157,6 @@ public class MultiSequenceCalculator implements Runnable {
         }
     }
 
-    private String getNodeId(MultiNode node) {
-        return (node.id < node.rc.id ? "" : "-") + (Math.min(node.rc.id, node.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
-    }
-
     private Set<Integer> getNeighborIds(MultiNode node) {
         Set<Integer> result = new TreeSet<Integer>();
         for (MultiNode neighbor : node.neighbors) {
@@ -170,6 +167,10 @@ public class MultiSequenceCalculator implements Runnable {
         }
         result.remove(Math.min(node.id, node.rc.id) + 1);
         return result;
+    }
+
+    private String getNodeId(MultiNode node) {
+        return (Math.min(node.id, node.rc.id) + 1) + (node.isGeneNode ? GFAWriter.GENE_LABEL_SUFFIX : "");
     }
 
     private void checkLabels(String a, String b) {
