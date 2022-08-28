@@ -103,6 +103,26 @@ public class GFAWriterMulti {
                 default:
                     return COLOR_BLACK;
             }
+        } if (this.graphs.length == 3) {
+            if (node.isGeneNode) {
+                return COLOR_GREEN;
+            }
+            switch ((int) node.graphs.size()) {
+                case 1:
+                    return COLOR_RED;
+                case 2:
+                    return COLOR_BLUE;
+                case 3:
+                    return "#ff00ff";
+                case 4:
+                    return "#ffff00";
+                case 5:
+                    return "#ffaa00";
+                case 6:
+                    return "#00ffff";
+                default:
+                    return COLOR_BLACK;
+            }
         } else {
             if (node.isGeneNode) {
                 return COLOR_GREEN;

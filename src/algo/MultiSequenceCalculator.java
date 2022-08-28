@@ -133,6 +133,7 @@ public class MultiSequenceCalculator implements Runnable {
         firstMinus.rc = secondPlus;
 
         firstPlus.deleted = secondMinus.deleted = true;
+        //firstMinus.mask = secondPlus.mask = firstPlus.mask;
     }
 
     private void outputNodeSequences() {
