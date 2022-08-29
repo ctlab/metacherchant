@@ -1,5 +1,6 @@
 package algo;
 
+import io.writers.GFAWriter;
 import io.writers.GFAWriterMulti;
 import org.apache.log4j.Logger;
 import ru.ifmo.genetics.dna.DnaTools;
@@ -9,6 +10,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
 
+import static io.writers.GFAWriterMulti.GENE_LABEL_SUFFIX;
 import static utils.StringUtils.*;
 
 public class MultiSequenceCalculator implements Runnable {
@@ -143,7 +145,7 @@ public class MultiSequenceCalculator implements Runnable {
             for (int i = 0; i < size; i++) {
                 if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id) {
                     out.print("> ");
-                    out.print("Id" + (i + 1) + " ");
+                    out.print("Id" + getNodeId(nodes[i]) + " ");
                     out.print("Length:" + nodes[i].sequence.length() + " ");
                     out.print("Neighbors:" + getNeighborIds(nodes[i]));
                     out.println();
@@ -166,6 +168,10 @@ public class MultiSequenceCalculator implements Runnable {
         }
         result.remove(Math.min(node.id, node.rc.id) + 1);
         return result;
+    }
+
+    private String getNodeId(MultiNode node) {
+        return (Math.min(node.id, node.rc.id) + 1) + (node.isGeneNode ? GFAWriter.GENE_LABEL_SUFFIX : "");
     }
 
     private void checkLabels(String a, String b) {

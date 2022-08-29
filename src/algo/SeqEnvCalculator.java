@@ -14,6 +14,7 @@ import java.io.PrintWriter;
 import java.util.*;
 import java.util.function.Function;
 
+import static io.writers.GFAWriter.GENE_LABEL_SUFFIX;
 import static utils.StringUtils.allNeighbors;
 import static utils.StringUtils.normalizeDna;
 import static utils.StringUtils.shortenLabel;
@@ -256,7 +257,7 @@ public class SeqEnvCalculator implements Runnable {
             for (int i = 0; i < nodes.length; i++) {
                 if (!nodes[i].deleted && nodes[i].id < nodes[i].rc.id && nodes[i].sequence.length() >= 1) {
                     out.print("> ");
-                    out.print("Id" + (nodes[i].id + 1) + " ");
+                    out.print("Id" + getNodeId(nodes[i]) + " ");
                     out.print("Length:" + nodes[i].sequence.length() + " ");
                     out.print("Neighbors:" + getNeighborIds(nodes[i]));
                     out.println();
@@ -267,6 +268,10 @@ public class SeqEnvCalculator implements Runnable {
         } catch (IOException e) {
             logger.info(e.getMessage());
         }
+    }
+
+    private String getNodeId(SingleNode node) {
+        return (Math.min(node.id, node.rc.id) + 1) + (node.isGeneNode ? GENE_LABEL_SUFFIX : "");
     }
 
     private Set<Integer> getNeighborIds(SingleNode SingleNode) {
