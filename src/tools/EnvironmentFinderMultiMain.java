@@ -16,7 +16,7 @@ public class EnvironmentFinderMultiMain extends Tool {
     public static final String NAME = "environment-finder-multi";
     public static final String DESCRIPTION = "Displays difference between multiple genomic environments";
 
-    public static final int MAX_ENVIRONMENTS = 64;
+    public static final int MAX_ENVIRONMENTS = 256;
 
     public final Parameter<File[]> envFiles = addParameter(new FileMVParameterBuilder("env")
             .withShortOpt("e")
@@ -55,7 +55,8 @@ public class EnvironmentFinderMultiMain extends Tool {
             throw new ExecutionFailedException("Zero environments given");
         }
         if (graphs.length > MAX_ENVIRONMENTS) {
-            throw new ExecutionFailedException("Too many environments, expected < " + MAX_ENVIRONMENTS);
+            logger.warn("Found more than 256 environments. Grayscale graph may be not accurate.");
+            //throw new ExecutionFailedException("Too many environments, expected < " + MAX_ENVIRONMENTS);
         }
         this.k = graphs[0].keySet().iterator().next().length();
         for (Map<String, Integer> graph : graphs) {
