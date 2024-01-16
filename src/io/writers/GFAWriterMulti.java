@@ -87,7 +87,7 @@ public class GFAWriterMulti {
         }
         out.print("\tLN:i:" + (node.sequence.length()) + "\tKC:i:" + coverage);
         String color = determineColor(node);
-        out.println("\tCL:z:" + color + "\tC2:z:" + color);
+        out.println("\tCL:Z:" + color + "\tC2:Z:" + color);
     }
 
     private String determineColor(MultiNode node) {

@@ -95,6 +95,6 @@ public class GFAWriter {
         coverage += subgraph.get(StringUtils.normalizeDna(node.sequence.substring(node.sequence.length()-k)))*(k-1);
 
         out.println("\tLN:i:" + (node.sequence.length()) + "\tKC:i:" + coverage +
-                (node.color == null ? "" : ("\tCL:z:" + node.color)));
+                (node.color == null ? "" : ("\tCL:Z:" + node.color)));
     }
 }
